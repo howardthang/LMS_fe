@@ -22,10 +22,21 @@ export interface UserProfileResponse {
   };
 }
 
+export interface UpdateProfileRequest {
+  fullName?: string;
+  dateOfBirth?: string;
+  phoneNumber?: string;
+  address?: string;
+  aiPersonalizationEnabled?: boolean;
+}
+
 const usersService = {
   getMyProfile: async (): Promise<UserProfileResponse> => {
     return axiosInstance.get('/users/my-profile');
   },
+  updateMyProfile: async (data: UpdateProfileRequest): Promise<UserProfileResponse> => {
+    return axiosInstance.put('/users/my-profile', data);
+  }
 };
 
 export default usersService;

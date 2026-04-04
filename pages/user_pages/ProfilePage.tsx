@@ -7,6 +7,14 @@ const ProfilePage = () => {
   const [profile, setProfile] = useState<UserProfileResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editData, setEditData] = useState({
+    fullName: '',
+    phoneNumber: '',
+    dateOfBirth: '',
+    address: '',
+    aiPersonalizationEnabled: false as boolean | undefined
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -14,6 +22,13 @@ const ProfilePage = () => {
         const res = await usersService.getMyProfile();
         if (res && res.data) {
           setProfile(res.data);
+          setEditData({
+            fullName: res.data.fullName || '',
+            phoneNumber: res.data.phoneNumber || '',
+            dateOfBirth: res.data.dateOfBirth || '',
+            address: res.data.address || '',
+            aiPersonalizationEnabled: res.data.aiPersonalizationEnabled
+          });
         }
       } catch (error) {
         console.error('Failed to fetch profile', error);
@@ -26,7 +41,33 @@ const ProfilePage = () => {
   }, []);
 
   const handleEditToggle = () => {
+    if (isEditing && profile) {
+      // Revert if cancelling
+      setEditData({
+        fullName: profile.fullName || '',
+        phoneNumber: profile.phoneNumber || '',
+        dateOfBirth: profile.dateOfBirth || '',
+        address: profile.address || '',
+        aiPersonalizationEnabled: profile.aiPersonalizationEnabled
+      });
+    }
     setIsEditing(!isEditing);
+  };
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      const res = await usersService.updateMyProfile(editData);
+      if (res && res.data) {
+        setProfile(res.data);
+        setIsEditing(false);
+        alert('Cập nhật thông tin thành công!');
+      }
+    } catch (e: any) {
+      alert('Cập nhật thất bại: ' + (e.message || 'Lỗi hệ thống'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (loading) {
@@ -65,6 +106,7 @@ const ProfilePage = () => {
             variant={isEditing ? "primary" : "outline"} 
             className="text-xs h-8"
             onClick={handleEditToggle}
+            disabled={isSaving}
           >
             {isEditing ? (
               'Hủy chỉnh sửa'
@@ -85,7 +127,7 @@ const ProfilePage = () => {
                 )}
               </div>
               {isEditing && (
-                <Button size="sm" variant="outline" className="w-full text-xs">
+                <Button size="sm" variant="outline" className="w-full text-xs" disabled={isSaving}>
                   <ImageIcon size={14} className="mr-2" /> Đổi ảnh
                 </Button>
               )}
@@ -94,8 +136,9 @@ const ProfilePage = () => {
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input 
                 label="Họ tên" 
-                defaultValue={profile.fullName || ''} 
-                disabled={!isEditing}
+                value={editData.fullName} 
+                onChange={(e: any) => setEditData({...editData, fullName: e.target.value})}
+                disabled={!isEditing || isSaving}
                 className={!isEditing ? "bg-gray-50" : ""}
               />
               <Input 
@@ -106,50 +149,54 @@ const ProfilePage = () => {
               />
               <Input 
                 label="Số điện thoại" 
-                defaultValue={profile.phoneNumber || ''} 
-                disabled={!isEditing}
+                value={editData.phoneNumber} 
+                onChange={(e: any) => setEditData({...editData, phoneNumber: e.target.value})}
+                disabled={!isEditing || isSaving}
                 className={!isEditing ? "bg-gray-50" : ""}
               />
               <Input 
                 label="Ngày sinh" 
                 type="date"
-                defaultValue={profile.dateOfBirth || ''} 
-                disabled={!isEditing}
+                value={editData.dateOfBirth} 
+                onChange={(e: any) => setEditData({...editData, dateOfBirth: e.target.value})}
+                disabled={!isEditing || isSaving}
                 className={!isEditing ? "bg-gray-50" : ""}
               />
               <Input 
                 label="Địa chỉ" 
-                defaultValue={profile.address || ''} 
-                disabled={!isEditing}
+                value={editData.address} 
+                onChange={(e: any) => setEditData({...editData, address: e.target.value})}
+                disabled={!isEditing || isSaving}
                 className={!isEditing ? "bg-gray-50" : ""}
               />
               <Input
                 label="Vai trò (Role)"
                 defaultValue={profile.roles?.[0]?.roleName || 'N/A'}
                 disabled
-                className="bg-gray-100 font-semibold"
+                className="bg-gray-100 font-semibold text-gray-500"
               />
             </div>
           </div>
 
           {/* Moved from AI settings */}
           <div className="flex flex-col md:flex-row md:items-center justify-between">
-              <div className="mr-6">
-                <h4 className="text-sm font-bold text-gray-900">
-                  Cá nhân hóa AI
-                </h4>
-                <p className="text-xs text-gray-500">
-                  Sử dụng lịch sử mượn & tìm kiếm để cá nhân hóa gợi ý
-                </p>
-              </div>
+            <div className="mr-6">
+              <h4 className="text-sm font-bold text-gray-900">
+                Cá nhân hóa AI
+              </h4>
+              <p className="text-xs text-gray-500">
+                Sử dụng lịch sử mượn & tìm kiếm để cá nhân hóa gợi ý
+              </p>
+            </div>
             <div className="flex items-center my-2">
               <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in flex-shrink-0">
                 <input
                   type="checkbox"
                   name="toggle"
                   id="toggle"
-                  defaultChecked={profile.aiPersonalizationEnabled}
-                  disabled={!isEditing}
+                  checked={editData.aiPersonalizationEnabled}
+                  onChange={(e) => setEditData({...editData, aiPersonalizationEnabled: e.target.checked})}
+                  disabled={!isEditing || isSaving}
                   className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-blue-600 right-4 border-gray-300 disabled:opacity-50"
                 />
                 <label
@@ -158,15 +205,20 @@ const ProfilePage = () => {
                 ></label>
               </div>
             </div>
-
           </div>
-            {isEditing && (
-              <div className="flex justify-end mt-5">
-                <Button className="flex items-center px-6 mt-4 md:mt-0 shadow-md">
-                  <Save size={18} className="mr-2" /> Lưu thiết lập
-                </Button>
-              </div>
-            )}
+          
+          {isEditing && (
+            <div className="flex justify-end mt-5 border-t border-gray-100 pt-5">
+              <Button 
+                className="flex items-center px-6 md:mt-0 shadow-md"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                <Save size={18} className="mr-2" /> 
+                {isSaving ? 'Đang lưu...' : 'Lưu thiết lập'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -216,38 +268,6 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* AI Preferences */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="font-bold text-gray-900">
-            Cấu hình AI & sở thích đọc
-          </h3>
-        </div>
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ngành ưu tiên
-              </label>
-              <select className="block w-full border border-gray-300 rounded-md p-2 text-sm" disabled={!isEditing}>
-                <option>Công nghệ thông tin</option>
-                <option>Khoa học máy tính</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mục tiêu
-              </label>
-              <select className="block w-full border border-gray-300 rounded-md p-2 text-sm" disabled={!isEditing}>
-                <option>Nghiên cứu</option>
-                <option>Học môn</option>
-                <option>Giải trí</option>
-              </select>
-            </div>
-          </div>
-
-        </div>
-      </div>
     </div>
   );
 };

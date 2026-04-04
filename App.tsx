@@ -28,6 +28,7 @@ import PublicSearchPage from './pages/public_pages/SearchPage';
 import ServiceTermsPage from './pages/public_pages/ServiceTermsPage';
 import TermsPage from './pages/public_pages/TermsPage';
 import UserGuidePage from './pages/public_pages/UserGuidePage';
+import OAuth2CallbackPage from './pages/public_pages/OAuth2CallbackPage';
 
 // User pages
 import DashboardPage from './pages/user_pages/DashboardPage';
@@ -85,6 +86,11 @@ const ProtectedRoute: React.FC<{
 
 // Wrapper to conditionally render Layout
 const AppContent = () => {
+  // Bắt callback từ Google OAuth2 (Google redirect trực tiếp vào trình duyệt, không có dấu #)
+  if (window.location.pathname === '/oauth2/callback') {
+    return <OAuth2CallbackPage />;
+  }
+
   const location = useLocation();
   const { userType } = useAuth();
 

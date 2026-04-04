@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '../../components/public_pages/Layout';
 import { Button } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
+import authService from '../../api/authService';
 import { log } from 'console';
 
 const LoginPage = () => {
@@ -126,12 +127,18 @@ const LoginPage = () => {
               fullWidth
               variant="outline"
               type="button"
-              onClick={() => {
-                login('student');
-                navigate('/dashboard');
+              onClick={async () => {
+                try {
+                  const res = await authService.getGoogleLoginUrl();
+                  if (res && res.data) {
+                    window.location.href = res.data;
+                  }
+                } catch (e: any) {
+                  alert('Không thể lấy cấu hình đăng nhập Google: ' + e.message);
+                }
               }}
             >
-              Đăng nhập với SSO trường
+              Đăng nhập với Google
             </Button>
 
             <p className="text-center text-sm text-gray-600">

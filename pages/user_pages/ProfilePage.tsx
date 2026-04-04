@@ -1,7 +1,50 @@
-import { Bell, Edit2, Lock, Save } from 'lucide-react';
+import { Bell, Edit2, Lock, Save, User, Image as ImageIcon } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
+import { useEffect, useState } from 'react';
+import usersService, { UserProfileResponse } from '../../api/usersService';
 
 const ProfilePage = () => {
+  const [profile, setProfile] = useState<UserProfileResponse['data'] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await usersService.getMyProfile();
+        if (res && res.data) {
+          setProfile(res.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  const handleEditToggle = () => {
+    setIsEditing(!isEditing);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="text-center py-10 text-gray-500">
+        Không thể tải thông tin người dùng.
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
       <div>
@@ -17,25 +60,113 @@ const ProfilePage = () => {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
           <h3 className="font-bold text-gray-900">Thông tin cơ bản</h3>
-          <Button size="sm" variant="outline" className="text-xs h-8">
-            <Edit2 size={12} className="mr-1" /> Chỉnh sửa
+          <Button 
+            size="sm" 
+            variant={isEditing ? "primary" : "outline"} 
+            className="text-xs h-8"
+            onClick={handleEditToggle}
+          >
+            {isEditing ? (
+              'Hủy chỉnh sửa'
+            ) : (
+              <><Edit2 size={12} className="mr-1" /> Chỉnh sửa</>
+            )}
           </Button>
         </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Input label="Họ tên" defaultValue="Hồ Sỹ Thắng" />
-          <Input label="Email" defaultValue="thang.hokhmtk22@hcmut.edu.vn" />
-          <Input
-            label="Mã SV / GV"
-            defaultValue="2213188"
-            disabled
-            className="bg-gray-50"
-          />
-          <Input
-            label="Khoa / Ngành"
-            defaultValue="Khoa Công nghệ Thông tin"
-            disabled
-            className="bg-gray-50"
-          />
+        
+        <div className="p-6">
+          <div className="flex flex-col md:flex-row gap-8 mb-6 border-b border-gray-100 pb-8">
+            <div className="flex flex-col items-center max-w-[200px]">
+              <div className="w-32 h-32 rounded-full bg-gray-200 overflow-hidden mb-4 flex items-center justify-center border-4 border-white shadow-lg">
+                {profile.profilePictureUrl ? (
+                  <img src={profile.profilePictureUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={48} className="text-gray-400" />
+                )}
+              </div>
+              {isEditing && (
+                <Button size="sm" variant="outline" className="w-full text-xs">
+                  <ImageIcon size={14} className="mr-2" /> Đổi ảnh
+                </Button>
+              )}
+            </div>
+            
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input 
+                label="Họ tên" 
+                defaultValue={profile.fullName || ''} 
+                disabled={!isEditing}
+                className={!isEditing ? "bg-gray-50" : ""}
+              />
+              <Input 
+                label="Email" 
+                defaultValue={profile.email || ''} 
+                disabled
+                className="bg-gray-100 font-semibold text-gray-500"
+              />
+              <Input 
+                label="Số điện thoại" 
+                defaultValue={profile.phoneNumber || ''} 
+                disabled={!isEditing}
+                className={!isEditing ? "bg-gray-50" : ""}
+              />
+              <Input 
+                label="Ngày sinh" 
+                type="date"
+                defaultValue={profile.dateOfBirth || ''} 
+                disabled={!isEditing}
+                className={!isEditing ? "bg-gray-50" : ""}
+              />
+              <Input 
+                label="Địa chỉ" 
+                defaultValue={profile.address || ''} 
+                disabled={!isEditing}
+                className={!isEditing ? "bg-gray-50" : ""}
+              />
+              <Input
+                label="Vai trò (Role)"
+                defaultValue={profile.roles?.[0]?.roleName || 'N/A'}
+                disabled
+                className="bg-gray-100 font-semibold"
+              />
+            </div>
+          </div>
+
+          {/* Moved from AI settings */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between">
+              <div className="mr-6">
+                <h4 className="text-sm font-bold text-gray-900">
+                  Cá nhân hóa AI
+                </h4>
+                <p className="text-xs text-gray-500">
+                  Sử dụng lịch sử mượn & tìm kiếm để cá nhân hóa gợi ý
+                </p>
+              </div>
+            <div className="flex items-center my-2">
+              <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+                <input
+                  type="checkbox"
+                  name="toggle"
+                  id="toggle"
+                  defaultChecked={profile.aiPersonalizationEnabled}
+                  disabled={!isEditing}
+                  className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-blue-600 right-4 border-gray-300 disabled:opacity-50"
+                />
+                <label
+                  htmlFor="toggle"
+                  className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-blue-600"
+                ></label>
+              </div>
+            </div>
+
+          </div>
+            {isEditing && (
+              <div className="flex justify-end mt-5">
+                <Button className="flex items-center px-6 mt-4 md:mt-0 shadow-md">
+                  <Save size={18} className="mr-2" /> Lưu thiết lập
+                </Button>
+              </div>
+            )}
         </div>
       </div>
 
@@ -98,7 +229,7 @@ const ProfilePage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Ngành ưu tiên
               </label>
-              <select className="block w-full border border-gray-300 rounded-md p-2 text-sm">
+              <select className="block w-full border border-gray-300 rounded-md p-2 text-sm" disabled={!isEditing}>
                 <option>Công nghệ thông tin</option>
                 <option>Khoa học máy tính</option>
               </select>
@@ -107,7 +238,7 @@ const ProfilePage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Mục tiêu
               </label>
-              <select className="block w-full border border-gray-300 rounded-md p-2 text-sm">
+              <select className="block w-full border border-gray-300 rounded-md p-2 text-sm" disabled={!isEditing}>
                 <option>Nghiên cứu</option>
                 <option>Học môn</option>
                 <option>Giải trí</option>
@@ -115,35 +246,7 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-            <div>
-              <h4 className="text-sm font-bold text-gray-900">
-                Cá nhân hóa AI
-              </h4>
-              <p className="text-xs text-gray-500">
-                Cho phép AI sử dụng lịch sử mượn để đưa ra gợi ý phù hợp hơn
-              </p>
-            </div>
-            <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-              <input
-                type="checkbox"
-                name="toggle"
-                id="toggle"
-                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-blue-600 right-4 border-gray-300"
-              />
-              <label
-                htmlFor="toggle"
-                className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-blue-600"
-              ></label>
-            </div>
-          </div>
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button className="flex items-center px-6">
-          <Save size={18} className="mr-2" /> Lưu thay đổi
-        </Button>
       </div>
     </div>
   );

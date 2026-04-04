@@ -4,24 +4,31 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '../../components/public_pages/Layout';
 import { Button } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
+import { log } from 'console';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const username = usernameRef.current?.value || '';
+    const password = passwordRef.current?.value || '';
 
-    // Phân biệt user type dựa trên username
-    login(username);
-
-    // Redirect dựa trên user type
-    if (username.toLowerCase() === 'librarian') {
-      navigate('/librarian/dashboard');
-    } else {
-      navigate('/dashboard');
+    try {
+      // Gọi API đăng nhập và lưu tokens, lấy về role decoded từ JWT
+      const role = await login(username, password);
+      
+      // Redirect dựa trên role thực tế
+      if (role === 'librarian') {
+        navigate('/librarian/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (e) {
+      alert(e.message);
     }
   };
 
@@ -75,6 +82,7 @@ const LoginPage = () => {
                   <Lock size={18} />
                 </div>
                 <input
+                  ref={passwordRef}
                   type="password"
                   placeholder="Nhập mật khẩu"
                   defaultValue="password"

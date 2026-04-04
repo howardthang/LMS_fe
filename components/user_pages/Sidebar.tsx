@@ -12,9 +12,10 @@ import {
   Settings,
   User,
 } from 'lucide-react';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import usersService, { UserProfileResponse } from '../../api/usersService';
 
 const SidebarItem = ({ to, icon: Icon, label, active, count }: any) => (
   <Link
@@ -50,6 +51,21 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = React.useState(false);
+  const [profile, setProfile] = useState<UserProfileResponse['data'] | null>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await usersService.getMyProfile();
+        if (res && res.data) {
+          setProfile(res.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile in sidebar', error);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -162,14 +178,20 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
         {/* User Mini Profile in Sidebar - Above Settings */}
         <div className="p-4 border-t border-gray-200 mt-6">
           <div className="flex items-center mb-3">
-            <img
-              src="public/avatar/Avatar.JPG"
-              alt="User"
-              className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-            />
+            {profile?.profilePictureUrl ? (
+              <img
+                src={profile.profilePictureUrl}
+                alt="User"
+                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border-2 border-white shadow-sm">
+                <User size={20} className="text-gray-500" />
+              </div>
+            )}
             <div className="ml-3 overflow-hidden flex-1">
               <p className="text-sm font-medium text-gray-900 truncate">
-                Hồ Sỹ Thắng
+                {profile?.fullName || 'Đang tải...'}
               </p>
               <p className="text-xs text-gray-500 truncate">2213188</p>
             </div>

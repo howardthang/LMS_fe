@@ -84,7 +84,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // 1. Gọi backend để đưa refreshToken vào blacklist
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      try {
+        await authService.logout(refreshToken);
+      } catch (error) {
+        console.error('Lỗi khi gọi API logout:', error);
+      }
+    }
+
+    // 2. Clear state nội bộ và local storage
     setUserType(null);
     localStorage.removeItem('userType');
     localStorage.removeItem('accessToken');

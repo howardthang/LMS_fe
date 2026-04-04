@@ -71,8 +71,8 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
 
   const { logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 

@@ -20,6 +20,7 @@ const axiosInstance: AxiosInstance = axios.create({
   timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 10000,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "69420", // Bypass màn hình cảnh báo của ngrok
   },
 });
 
@@ -55,9 +56,24 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+let isRefreshing = false;
+let failedQueue: { resolve: any; reject: any }[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
 /**
  * RESPONSE INTERCEPTOR
- * Tự động unwrap data và xử lý lỗi chung
+ * Tự động unwrap data và xử lý lỗi chung (Bao gồm Auto-Refresh Token)
  */
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => {
@@ -75,23 +91,107 @@ axiosInstance.interceptors.response.use(
     // Thay vì: const books = (await api.get('/books')).data
     return response.data;
   },
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
+    const originalRequest = error.config as any;
+
     // Xử lý lỗi response
     if (error.response) {
       // Server trả về response với status code lỗi (4xx, 5xx)
       const { status, data } = error.response;
 
+      const isTokenExpired = status === 401 || (data && (data as any).code === 1403);
+
+      if (isTokenExpired) {
+        // Unauthorized hoặc Token hết hạn -> Tiến hành Refresh
+        if (originalRequest && !originalRequest._retry) {
+          if (isRefreshing) {
+            return new Promise(function (resolve, reject) {
+              failedQueue.push({ resolve, reject });
+            })
+              .then((token) => {
+                if (originalRequest.headers) {
+                  originalRequest.headers['Authorization'] = 'Bearer ' + token;
+                }
+                return axiosInstance(originalRequest);
+              })
+              .catch((err) => {
+                return Promise.reject(err);
+              });
+          }
+
+          originalRequest._retry = true;
+          isRefreshing = true;
+
+          const refreshToken = localStorage.getItem('refreshToken');
+          // Nếu không có refresh token thì buộc đăng xuất ngay
+          if (!refreshToken) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userType');
+            window.location.href = '/#/publicpage/login';
+            window.location.reload();
+            return Promise.reject(error);
+          }
+
+          try {
+            const baseURL =
+              import.meta.env.VITE_API_BASE_URL ||
+              'http://localhost:8080/api/v1';
+              
+            const res = await axios.post(
+              `${baseURL}/auth/refresh-accesstoken`,
+              {},
+              {
+                headers: {
+                  're-token': refreshToken,
+                  'ngrok-skip-browser-warning': '69420', // Bypass màn hình cảnh báo của ngrok
+                },
+              }
+            );
+
+            if ((res.data && res.data.code === 1403) || res.status === 401) {
+              throw new Error('Refresh token expired (1403)');
+            }
+
+            if (res.data && res.data.data) {
+              const newAccessToken = res.data.data.accessToken;
+              const newRefreshToken = res.data.data.refreshToken;
+
+              localStorage.setItem('accessToken', newAccessToken);
+              localStorage.setItem('refreshToken', newRefreshToken);
+
+              if (originalRequest.headers) {
+                originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+              }
+              
+              processQueue(null, newAccessToken);
+              return axiosInstance(originalRequest);
+            } else {
+              throw new Error('Refresh failed (No data)');
+            }
+          } catch (err) {
+            processQueue(err, null);
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userType');
+            window.location.href = '/#/publicpage/login';
+            window.location.reload();
+            return Promise.reject(err);
+          } finally {
+            isRefreshing = false;
+          }
+        }
+
+        // Rớt xuống đây nghĩa là refresh bị sai chính bản thân nó hoặc bị lỗi nặng
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userType');
+        window.location.href = '/#/publicpage/login';
+        window.location.reload();
+        return Promise.reject(error);
+      }
+
       switch (status) {
-        case 401:
-          // Unauthorized - Token hết hạn hoặc không hợp lệ
-          console.error("🔒 Unauthorized: Token hết hạn hoặc không hợp lệ");
-
-          // Xóa token và redirect về login
-          localStorage.removeItem("accessToken");
-
-          // Có thể dispatch action hoặc redirect
-          // window.location.href = '/login';
-          break;
 
         case 403:
           // Forbidden - Không có quyền truy cập

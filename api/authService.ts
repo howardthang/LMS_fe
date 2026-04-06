@@ -17,20 +17,20 @@ export interface AuthUrlResponse {
 
 const authService = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
-    return axiosInstance.post('/auths/login', { email, password });
+    return axiosInstance.post('/auth/login', { email, password });
   },
 
   getGoogleLoginUrl: async (): Promise<AuthUrlResponse> => {
-    return axiosInstance.get('/auths/login-with-social?loginType=google');
+    return axiosInstance.get('/auth/login-with-social?loginType=google');
   },
 
   socialLoginCallback: async (registrationId: string, code: string): Promise<LoginResponse> => {
-    return axiosInstance.post(`/auths/social-callback/${registrationId}?code=${code}`);
+    return axiosInstance.post(`/auth/social-callback/${registrationId}?code=${code}`);
   },
 
   logout: async (refreshToken: string): Promise<any> => {
     // Gọi API logout nhưng dùng config thứ 3 để ghi đè header
-    return axiosInstance.post('/auths/logout', {}, {
+    return axiosInstance.post('/auth/logout', {}, {
       headers: {
         're-token': refreshToken
       }

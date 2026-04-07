@@ -1,4 +1,7 @@
-import { Bell, Edit2, Lock, Save, User, Image as ImageIcon } from 'lucide-react';
+import { 
+  Bell, Edit2, Lock, Save, User, Image as ImageIcon, 
+  Hash, Mail, CreditCard, GraduationCap, Shield, Award 
+} from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useEffect, useState } from 'react';
 import usersService, { UserProfileResponse } from '../../api/usersService';
@@ -117,6 +120,50 @@ const ProfilePage = () => {
         </div>
         
         <div className="p-6">
+          {/* Read-only Immutable Info Cards */}
+          <div className="bg-blue-50/40 rounded-xl p-5 border border-blue-100 grid grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+            <div>
+              <p className="text-xs text-blue-400 mb-1 font-semibold flex items-center uppercase tracking-wider"><Hash size={12} className="mr-1"/> ID Hệ thống</p>
+              <p className="text-sm font-semibold text-gray-800">{profile.id}</p>
+            </div>
+            <div>
+              <p className="text-xs text-blue-400 mb-1 font-semibold flex items-center uppercase tracking-wider"><Mail size={12} className="mr-1"/> Email</p>
+              <p className="text-sm font-semibold text-gray-800 break-all">{profile.email}</p>
+            </div>
+            <div>
+              <p className="text-xs text-blue-400 mb-1 font-semibold flex items-center uppercase tracking-wider"><CreditCard size={12} className="mr-1"/> Mã SV/GV</p>
+              <p className="text-sm font-semibold text-gray-800">{profile.studentId || 'Không có'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-blue-400 mb-1 font-semibold flex items-center uppercase tracking-wider"><GraduationCap size={12} className="mr-1"/> Khoa/Ngành</p>
+              <p className="text-sm font-semibold text-gray-800">{profile.faculty || 'Không có'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-blue-400 mb-1 font-semibold flex items-center uppercase tracking-wider"><Shield size={12} className="mr-1"/> Vai trò</p>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                {profile.roles?.[0]?.roleName || 'N/A'}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs text-blue-400 mb-1 font-semibold flex items-center uppercase tracking-wider"><Award size={12} className="mr-1"/> Điểm tín nhiệm / Trạng thái</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 shadow-sm">
+                  ⭐ {profile.creditScore ?? 100}
+                </span>
+                {profile.status === 'ACTIVE' ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    🟢 Hoạt động
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 border border-rose-200">
+                    🔴 {profile.status}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <h4 className="text-sm font-bold text-gray-700 mb-4 border-b border-gray-100 pb-2">Thông tin có thể can thiệp</h4>
           <div className="flex flex-col md:flex-row gap-8 mb-6 border-b border-gray-100 pb-8">
             <div className="flex flex-col items-center max-w-[200px]">
               <div className="w-32 h-32 rounded-full bg-gray-200 overflow-hidden mb-4 flex items-center justify-center border-4 border-white shadow-lg">
@@ -142,12 +189,6 @@ const ProfilePage = () => {
                 className={!isEditing ? "bg-gray-50" : ""}
               />
               <Input 
-                label="Email" 
-                defaultValue={profile.email || ''} 
-                disabled
-                className="bg-gray-100 font-semibold text-gray-500"
-              />
-              <Input 
                 label="Số điện thoại" 
                 value={editData.phoneNumber} 
                 onChange={(e: any) => setEditData({...editData, phoneNumber: e.target.value})}
@@ -168,12 +209,6 @@ const ProfilePage = () => {
                 onChange={(e: any) => setEditData({...editData, address: e.target.value})}
                 disabled={!isEditing || isSaving}
                 className={!isEditing ? "bg-gray-50" : ""}
-              />
-              <Input
-                label="Vai trò (Role)"
-                defaultValue={profile.roles?.[0]?.roleName || 'N/A'}
-                disabled
-                className="bg-gray-100 font-semibold text-gray-500"
               />
             </div>
           </div>

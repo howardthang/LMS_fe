@@ -9,6 +9,8 @@ export interface UserProfileResponse {
     fullName: string;
     dateOfBirth: string | null;
     phoneNumber: string | null;
+    studentId: string | null;
+    faculty: string | null;
     address: string | null;
     profilePictureUrl: string | null;
     roles: {
@@ -19,6 +21,7 @@ export interface UserProfileResponse {
     status: string;
     aiPersonalizationEnabled: boolean;
     lastLoginAt: string | null;
+    creditScore: number;
   };
 }
 

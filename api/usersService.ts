@@ -38,6 +38,12 @@ export interface OnboardingProfileRequest {
   faculty: string;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+}
+
 const usersService = {
   getMyProfile: async (): Promise<UserProfileResponse> => {
     return axiosInstance.get('/users/my-profile');
@@ -54,6 +60,9 @@ const usersService = {
     return axiosInstance.post('/users/avatar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
+  },
+  changePassword: async (data: ChangePasswordRequest): Promise<any> => {
+    return axiosInstance.put('/users/my-profile/change-password', data);
   }
 };
 

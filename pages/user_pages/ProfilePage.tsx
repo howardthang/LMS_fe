@@ -22,6 +22,13 @@ const ProfilePage = () => {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isViewingAvatar, setIsViewingAvatar] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -77,11 +84,36 @@ const ProfilePage = () => {
         address: profile.address || '',
         aiPersonalizationEnabled: profile.aiPersonalizationEnabled
       });
-    }
-    setIsEditing(!isEditing);
-  };
-
-  const handleSave = async () => {
+      }
+      setIsEditing(!isEditing);
+    };
+  
+    const handleChangePassword = async () => {
+      if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+        alert('Vui lòng điền đầy đủ thông tin mật khẩu!');
+        return;
+      }
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        alert('Mật khẩu xác nhận không khớp!');
+        return;
+      }
+      try {
+        setIsChangingPassword(true);
+        const res = await usersService.changePassword(passwordData);
+        if (res && res.code === 200) {
+          alert('Đổi mật khẩu thành công!');
+          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } else {
+          alert(res?.message || 'Đổi mật khẩu thất bại!');
+        }
+      } catch (error: any) {
+        alert('Đổi mật khẩu thất bại: ' + (error.message || ''));
+      } finally {
+        setIsChangingPassword(false);
+      }
+    };
+  
+    const handleSave = async () => {
     try {
       setIsSaving(true);
       const res = await usersService.updateMyProfile(editData);
@@ -298,9 +330,38 @@ const ProfilePage = () => {
             <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center">
               <Lock size={16} className="mr-2" /> Đổi mật khẩu
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input type="password" placeholder="Mật khẩu hiện tại" />
-              <Input type="password" placeholder="Mật khẩu mới" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <Input 
+                type="password" 
+                placeholder="Mật khẩu hiện tại" 
+                value={passwordData.currentPassword}
+                onChange={(e: any) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+              />
+              <Input 
+                type="password" 
+                placeholder="Mật khẩu mới" 
+                value={passwordData.newPassword}
+                onChange={(e: any) => setPasswordData({...passwordData, newPassword: e.target.value})}
+              />
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <Input 
+                    type="password" 
+                    placeholder="Xác nhận mật khẩu" 
+                    value={passwordData.confirmPassword}
+                    onChange={(e: any) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex">
+                <Button 
+                  onClick={handleChangePassword} 
+                  disabled={isChangingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                  className="px-6"
+                >
+                  {isChangingPassword ? 'Đang đổi...' : 'Đổi mật khẩu'}
+                </Button>
             </div>
           </div>
 

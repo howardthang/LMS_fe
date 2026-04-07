@@ -1,9 +1,10 @@
 import { 
   Bell, Edit2, Lock, Save, User, Image as ImageIcon, 
-  Hash, Mail, CreditCard, GraduationCap, Shield, Award 
+  Hash, Mail, CreditCard, GraduationCap, Shield, Award, Camera 
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import usersService, { UserProfileResponse } from '../../api/usersService';
 
 const ProfilePage = () => {
@@ -18,6 +19,29 @@ const ProfilePage = () => {
     address: '',
     aiPersonalizationEnabled: false as boolean | undefined
   });
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isViewingAvatar, setIsViewingAvatar] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      try {
+        setIsUploadingAvatar(true);
+        const file = e.target.files[0];
+        const res = await usersService.updateAvatar(file);
+        
+        // Mocking the update or utilizing response
+        const newUrl = res?.data?.profilePictureUrl || URL.createObjectURL(file);
+        setProfile(prev => prev ? {...prev, profilePictureUrl: newUrl} : null);
+        alert('Cập nhật ảnh đại diện thành công!');
+      } catch (error: any) {
+        alert('Cập nhật ảnh thất bại: ' + (error.message || ''));
+      } finally {
+        setIsUploadingAvatar(false);
+        setIsAvatarModalOpen(false);
+      }
+    }
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -90,14 +114,36 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Thông tin cá nhân & Cài đặt
-        </h1>
-        <p className="text-gray-500 text-sm">
-          Quản lý thông tin tài khoản và tùy chỉnh trải nghiệm
-        </p>
+    <div className="animate-fade-in space-y-6 max-w-4xl mx-auto pb-10">
+      {/* Profile Header / Banner */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        </div>
+        <div className="px-6 pb-6 relative flex flex-col md:flex-row justify-between items-center md:items-end">
+          <div className="flex flex-col md:flex-row items-center md:items-end -mt-16 md:-mt-12 w-full md:w-auto text-center md:text-left">
+            <div 
+               className="w-32 h-32 rounded-full border-4 border-white shadow-md bg-white overflow-hidden relative group cursor-pointer"
+               onClick={() => setIsAvatarModalOpen(true)}
+            >
+              {profile.profilePictureUrl ? (
+                 <img src={profile.profilePictureUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                 <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                    <User size={48} className="text-gray-400" />
+                 </div>
+              )}
+              {/* Overlay on hover */}
+              <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                 <Camera className="text-white" size={28} />
+              </div>
+            </div>
+            <div className="mt-4 md:mt-0 md:ml-5 pb-2">
+               <h2 className="text-2xl md:text-3xl font-bold text-gray-900">{profile.fullName}</h2>
+               <p className="text-sm font-medium text-blue-600 mt-1 uppercase tracking-wider">{profile.roles?.[0]?.roleName || 'STUDENT'}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Basic Info */}
@@ -164,23 +210,8 @@ const ProfilePage = () => {
           </div>
 
           <h4 className="text-sm font-bold text-gray-700 mb-4 border-b border-gray-100 pb-2">Thông tin có thể can thiệp</h4>
-          <div className="flex flex-col md:flex-row gap-8 mb-6 border-b border-gray-100 pb-8">
-            <div className="flex flex-col items-center max-w-[200px]">
-              <div className="w-32 h-32 rounded-full bg-gray-200 overflow-hidden mb-4 flex items-center justify-center border-4 border-white shadow-lg">
-                {profile.profilePictureUrl ? (
-                  <img src={profile.profilePictureUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={48} className="text-gray-400" />
-                )}
-              </div>
-              {isEditing && (
-                <Button size="sm" variant="outline" className="w-full text-xs" disabled={isSaving}>
-                  <ImageIcon size={14} className="mr-2" /> Đổi ảnh
-                </Button>
-              )}
-            </div>
-            
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mb-6 border-b border-gray-100 pb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
               <Input 
                 label="Họ tên" 
                 value={editData.fullName} 
@@ -302,6 +333,39 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Avatar Modals */}
+      {isAvatarModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 p-4 transition-opacity">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm animate-fade-in">
+            <h3 className="text-lg font-extrabold text-gray-900 mb-6 text-center">Tùy chọn ảnh đại diện</h3>
+            <div className="space-y-3">
+              <Button fullWidth variant="outline" onClick={() => { setIsViewingAvatar(true); setIsAvatarModalOpen(false); }}>
+                <ImageIcon size={18} className="mr-2"/> Xem ảnh lớn
+              </Button>
+              <Button fullWidth variant="primary" onClick={() => document.getElementById('avatar-upload')?.click()} disabled={isUploadingAvatar}>
+                <Camera size={18} className="mr-2"/> {isUploadingAvatar ? 'Đang tải lên...' : 'Cập nhật ảnh mới'}
+              </Button>
+              <input type="file" id="avatar-upload" hidden accept="image/*" onChange={handleAvatarChange} />
+            </div>
+            <div className="mt-5 pt-3 border-t border-gray-100">
+              <Button variant="ghost" fullWidth onClick={() => setIsAvatarModalOpen(false)} className="text-gray-500">Đóng</Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {isViewingAvatar && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-90 p-4 cursor-pointer" onClick={() => setIsViewingAvatar(false)}>
+          <img 
+            src={profile.profilePictureUrl || ''} 
+            alt="Avatar Enlarge" 
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
+          />
+        </div>,
+        document.body
+      )}
 
     </div>
   );

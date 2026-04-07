@@ -47,6 +47,13 @@ const usersService = {
   },
   onboardingProfile: async (data: OnboardingProfileRequest): Promise<any> => {
     return axiosInstance.post('/auth/onboarding-profile', data);
+  },
+  updateAvatar: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return axiosInstance.post('/users/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
   }
 };
 

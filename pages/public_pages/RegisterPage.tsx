@@ -7,11 +7,66 @@ import {
   Shield,
   User,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import authService, { RegisterRequest } from '../../api/authService';
 import { Header } from '../../components/public_pages/Layout';
 import { Button, Input } from '../../components/ui';
 
 const RegisterPage = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    fullName: '',
+    studentId: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    faculty: ''
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      alert('Mật khẩu xác nhận không khớp!');
+      return;
+    }
+    if (!formData.faculty) {
+      alert('Vui lòng chọn khoa / ngành!');
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9._%+-]+@hcmut\.edu\.vn$/.test(formData.email)) {
+      alert('Email không hợp lệ. Vui lòng dùng email @hcmut.edu.vn');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const payload: RegisterRequest = {
+        ...formData,
+        studentId: Number(formData.studentId)
+      };
+      const response = await authService.register(payload);
+      console.log(response);
+      if (response && response.code === 200) {
+        alert(response.message || 'Đăng ký thành công!');
+        navigate('/publicpage/login');
+      } else {
+        alert(response?.message || 'Đăng ký thất bại, vui lòng thử lại.');
+      }
+    } catch (error: any) {
+      alert(error?.message || 'Đã có lỗi xảy ra. Hãy thử lại!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
@@ -82,21 +137,34 @@ const RegisterPage = () => {
               Đăng ký để truy cập hệ thống thư viện
             </p>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleRegister}>
               <Input
                 label="Họ và tên *"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                required
                 placeholder="Nguyễn Văn A"
                 icon={<User size={18} />}
               />
 
               <Input
                 label="Mã sinh viên / Mã giảng viên *"
+                name="studentId"
+                value={formData.studentId}
+                onChange={handleInputChange}
+                required
                 placeholder="2213188"
                 icon={<CreditCard size={18} />}
               />
 
               <Input
                 label="Email trường *"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
                 placeholder="student@hcmut.edu.vn"
                 icon={<Mail size={18} />}
               />
@@ -104,6 +172,10 @@ const RegisterPage = () => {
               <Input
                 label="Mật khẩu *"
                 type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
                 placeholder="Tối thiểu 8 ký tự"
                 icon={<Lock size={18} />}
               />
@@ -111,6 +183,10 @@ const RegisterPage = () => {
               <Input
                 label="Xác nhận mật khẩu *"
                 type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                required
                 placeholder="Nhập lại mật khẩu"
                 icon={<Lock size={18} />}
               />
@@ -123,11 +199,25 @@ const RegisterPage = () => {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                     <GraduationCap size={18} />
                   </div>
-                  <select className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white text-gray-500">
-                    <option>Chọn khoa / ngành</option>
-                    <option>Khoa học máy tính</option>
-                    <option>Kỹ thuật máy tính</option>
-                    <option>Hệ thống thông tin</option>
+                  <select 
+                    name="faculty"
+                    value={formData.faculty}
+                    onChange={handleInputChange}
+                    required
+                    className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white text-gray-500"
+                  >
+                    <option value="">Chọn khoa / ngành</option>
+                    <option value="KHOA_KHOA_HOC_VA_KY_THUAT_MAY_TINH">Khoa Khoa học và Kỹ thuật Máy tính</option>
+                    <option value="KHOA_DIEN_DIEN_TU">Khoa Điện - Điện tử</option>
+                    <option value="KHOA_CO_KHI">Khoa Cơ khí</option>
+                    <option value="KHOA_KY_THUAT_HOA_HOC">Khoa Kỹ thuật Hóa học</option>
+                    <option value="KHOA_KY_THUAT_XAY_DUNG">Khoa Kỹ thuật Xây dựng</option>
+                    <option value="KHOA_KY_THUAT_GIAO_THONG">Khoa Kỹ thuật Giao thông</option>
+                    <option value="KHOA_QUAN_LY_CONG_NGHIEP">Khoa Quản lý Công nghiệp</option>
+                    <option value="KHOA_MOI_TRUONG_VA_TAI_NGUYEN">Khoa Môi trường và Tài nguyên</option>
+                    <option value="KHOA_CONG_NGHE_VAT_LIEU">Khoa Công nghệ Vật liệu</option>
+                    <option value="KHOA_KHOA_HOC_UNG_DUNG">Khoa Khoa học Ứng dụng</option>
+                    <option value="KHOA_KY_THUAT_DIA_CHAT_VA_DAU_KHI">Khoa Kỹ thuật Địa chất và Dầu khí</option>
                   </select>
                 </div>
               </div>
@@ -150,8 +240,8 @@ const RegisterPage = () => {
                 </span>
               </div>
 
-              <Button fullWidth size="lg" className="mt-2">
-                Đăng ký tài khoản
+              <Button fullWidth size="lg" className="mt-2" type="submit" disabled={loading}>
+                {loading ? 'Đang đăng ký...' : 'Đăng ký tài khoản'}
               </Button>
 
               <div className="text-center mt-4">

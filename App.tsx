@@ -24,6 +24,7 @@ import HomePage from './pages/public_pages/HomePage';
 import LoginPage from './pages/public_pages/LoginPage';
 import PrivacyPolicyPage from './pages/public_pages/PrivacyPolicyPage';
 import RegisterPage from './pages/public_pages/RegisterPage';
+import OnboardingPage from './pages/public_pages/OnboardingPage';
 import PublicSearchPage from './pages/public_pages/SearchPage';
 import ServiceTermsPage from './pages/public_pages/ServiceTermsPage';
 import TermsPage from './pages/public_pages/TermsPage';
@@ -131,7 +132,8 @@ const AppContent = () => {
 
   const isAuthPage =
     location.pathname === `${PUBLIC_PREFIX}/login` ||
-    location.pathname === `${PUBLIC_PREFIX}/register`;
+    location.pathname === `${PUBLIC_PREFIX}/register` ||
+    location.pathname === `${PUBLIC_PREFIX}/onboarding`;
 
   // List of paths that use the user protected layout
   const userProtectedPaths = [
@@ -182,7 +184,7 @@ const AppContent = () => {
   }
 
   // Redirect if logged in user tries to access auth pages
-  if (isAuthPage && userType) {
+  if (isAuthPage && userType && location.pathname !== `${PUBLIC_PREFIX}/onboarding`) {
     if (userType === 'librarian') {
       return <Navigate to={`${LIB_PREFIX}/dashboard`} replace />;
     } else {
@@ -190,12 +192,13 @@ const AppContent = () => {
     }
   }
 
-  // Auth pages (login, register)
+  // Auth pages (login, register, onboarding)
   if (isAuthPage) {
     return (
       <Routes>
         <Route path={`${PUBLIC_PREFIX}/login`} element={<LoginPage />} />
         <Route path={`${PUBLIC_PREFIX}/register`} element={<RegisterPage />} />
+        <Route path={`${PUBLIC_PREFIX}/onboarding`} element={<OnboardingPage />} />
       </Routes>
     );
   }

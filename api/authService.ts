@@ -6,6 +6,7 @@ export interface LoginResponse {
   data: {
     accessToken: string;
     refreshToken: string;
+    isNewUser?: boolean;
   };
 }
 
@@ -15,6 +16,21 @@ export interface AuthUrlResponse {
   data: string;
 }
 
+export interface RegisterRequest {
+  fullName: string;
+  studentId: number;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  faculty: string;
+}
+
+export interface RegisterResponse {
+  code: number;
+  message: string;
+  data?: any;
+}
+
 const authService = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
     return axiosInstance.post('/auth/login', { email, password });
@@ -22,6 +38,10 @@ const authService = {
 
   getGoogleLoginUrl: async (): Promise<AuthUrlResponse> => {
     return axiosInstance.get('/auth/login-with-social?loginType=google');
+  },
+
+  register: async (data: RegisterRequest): Promise<RegisterResponse> => {
+    return axiosInstance.post('/auth/register', data);
   },
 
   socialLoginCallback: async (registrationId: string, code: string): Promise<LoginResponse> => {

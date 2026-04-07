@@ -30,12 +30,20 @@ export interface UpdateProfileRequest {
   aiPersonalizationEnabled?: boolean;
 }
 
+export interface OnboardingProfileRequest {
+  studentId: string;
+  faculty: string;
+}
+
 const usersService = {
   getMyProfile: async (): Promise<UserProfileResponse> => {
     return axiosInstance.get('/users/my-profile');
   },
   updateMyProfile: async (data: UpdateProfileRequest): Promise<UserProfileResponse> => {
     return axiosInstance.put('/users/my-profile', data);
+  },
+  onboardingProfile: async (data: OnboardingProfileRequest): Promise<any> => {
+    return axiosInstance.post('/auth/onboarding-profile', data);
   }
 };
 

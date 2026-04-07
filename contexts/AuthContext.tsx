@@ -6,7 +6,7 @@ export type UserType = 'student' | 'librarian' | null;
 interface AuthContextType {
   userType: UserType;
   login: (username: string, password?: string) => Promise<UserType>;
-  socialLogin: (registrationId: string, code: string) => Promise<UserType>;
+  socialLogin: (registrationId: string, code: string) => Promise<{ role: UserType; isNewUser?: boolean }>;
   logout: () => void;
 }
 
@@ -71,11 +71,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     return type;
   };
 
-  const socialLogin = async (registrationId: string, code: string): Promise<UserType> => {
+  const socialLogin = async (registrationId: string, code: string): Promise<{ role: UserType; isNewUser?: boolean }> => {
     try {
       const response = await authService.socialLoginCallback(registrationId, code);
       if (response && response.data) {
-        return handleToken(response.data.accessToken, response.data.refreshToken);
+        const role = handleToken(response.data.accessToken, response.data.refreshToken);
+        return { role, isNewUser: response.data.isNewUser };
       }
       throw new Error('Invalid response from social login callback');
     } catch (error) {

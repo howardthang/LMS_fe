@@ -17,9 +17,11 @@ const OAuth2CallbackPage = () => {
 
     const performLogin = async () => {
       try {
-        const role = await socialLogin('google', code);
-        // Điều hướng bằng window.location để reset lại pathname về gốc
-        if (role === 'librarian') {
+        const { role, isNewUser } = await socialLogin('google', code);
+        
+        if (isNewUser) {
+          window.location.href = '/#/publicpage/onboarding';
+        } else if (role === 'librarian') {
           window.location.href = '/#/librarianpage/dashboard';
         } else {
           window.location.href = '/#/userpage/dashboard';

@@ -27,9 +27,10 @@ export interface Author {
 // Category interface
 export interface Category {
   id: number;
-  categoryName: string;
+  categoryName?: string;
+  name?: string;
   parentCategoryId: number | null;
-  parentCategoryName: string | null;
+  parentCategoryName?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -118,6 +119,19 @@ export interface LibrarianPublicationDetailResponse {
     id: number;
     name: string;
   }[];
+  tags: {
+    id: number;
+    name: string;
+  }[];
+  ratings: {
+    averageRating: number;
+    totalRatings: number;
+  };
+  items: {
+    totalItems: number;
+    totalAvailableItems: number;
+    totalBorrowedItems: number;
+  };
 }
 
 export interface PaginatedPublications {

@@ -45,6 +45,9 @@ type FormState = {
   coverImageUrl: string | null;
   totalItems: number;
   availableItems: number;
+  borrowedItems: number;
+  averageRating: number;
+  totalRatings: number;
 };
 
 const emptyForm: FormState = {
@@ -68,6 +71,9 @@ const emptyForm: FormState = {
   coverImageUrl: null,
   totalItems: 0,
   availableItems: 0,
+  borrowedItems: 0,
+  averageRating: 0,
+  totalRatings: 0,
 };
 
 const BookDetails = () => {
@@ -135,10 +141,13 @@ const BookDetails = () => {
             aiTargetAudience: pub.aiTargetAudience ?? '',
             fileUrl: pub.fileUrl ?? '',
             categories: detail.categories?.map((c: any) => c.name) ?? [],
-            tags: [], // Tags no longer explicitly in detail response
+            tags: detail.tags?.map((t: any) => t.name) ?? [],
             coverImageUrl: pub.coverImageUrl ?? null,
-            totalItems: 0, // Fallback since new API might not include items stat
-            availableItems: 0
+            totalItems: detail.items?.totalItems ?? 0,
+            availableItems: detail.items?.totalAvailableItems ?? 0,
+            borrowedItems: detail.items?.totalBorrowedItems ?? 0,
+            averageRating: detail.ratings?.averageRating ?? 0,
+            totalRatings: detail.ratings?.totalRatings ?? 0,
           });
         }
       } catch (error) {
@@ -356,7 +365,7 @@ const BookDetails = () => {
                 <Copy size={18} /> Publication Metadata
               </h2>
               <p className="text-indigo-200 text-xs">
-                Manage and edit publication information
+                Quản lý các thông tin cơ bản về ấn phẩm
               </p>
             </div>
 
@@ -376,17 +385,161 @@ const BookDetails = () => {
                 </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Tải lên trang bìa
-                </label>
-                <button className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-                  <Upload size={16} /> Tải lên trang bìa
-                </button>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Tải lên trang bìa
+                  </label>
+                  <button className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                    <Upload size={16} /> Tải lên trang bìa
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    ISBN <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.isbn}
+                    onChange={(e) => setForm((prev) => ({ ...prev, isbn: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Số trang
+                  </label>
+                  <input
+                    type="number"
+                    value={form.pages}
+                    onChange={(e) => setForm((prev) => ({ ...prev, pages: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Năm xuất bản <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={form.publicationYear}
+                    onChange={(e) => setForm((prev) => ({ ...prev, publicationYear: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Ngôn ngữ <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.language}
+                    onChange={(e) => setForm((prev) => ({ ...prev, language: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                  >
+                    <option value="">Chọn ngôn ngữ</option>
+                    <option value="Vietnamese">Tiếng Việt</option>
+                    <option value="English">English</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Tái bản lần thứ
+                  </label>
+                  <input
+                    type="text"
+                    value={form.edition}
+                    onChange={(e) => setForm((prev) => ({ ...prev, edition: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Kích cỡ (A x A x A cm)
+                  </label>
+                  <input
+                    type="text"
+                    value={form.size}
+                    onChange={(e) => setForm((prev) => ({ ...prev, size: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Khối lượng (g)
+                  </label>
+                  <input
+                    type="number"
+                    value={form.weight}
+                    onChange={(e) => setForm((prev) => ({ ...prev, weight: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
               </div>
 
               <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Đặc tả
+                </label>
+                <textarea
+                  rows={4}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+
+              {/* AI Details could optionally go here, but omitted based on form mapping to simplify the page initially, or we leave it. Let me just add the ones actually mapped in form like aiSummary */}
+              {form.aiSummary && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
+                    <Star size={16} className="text-yellow-500" /> AI Summary & Tóm Tắt Nội Dung
+                  </label>
+                  <p className="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    {form.aiSummary}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+              <div className="text-xs text-slate-500">
+                Đã được đồng bộ với hệ thống.
+              </div>
+              <div className="flex gap-3">
+                <button className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-100 flex items-center gap-2">
+                  <RotateCcw size={16} /> Reset
+                </button>
+                <button
+                  className="px-6 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Relationships & Classification Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+            <div className="bg-blue-600 px-6 py-3 border-b border-blue-700">
+              <h2 className="text-white font-semibold flex items-center gap-2">
+                <Copy size={18} /> Phân loại & Liên kết
+              </h2>
+              <p className="text-blue-100 text-xs">
+                Quản lý tác giả, nhà xuất bản, danh mục và thẻ phân loại
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
                   Tác giả <span className="text-red-500">*</span>
                 </label>
                 <div className="space-y-3">
@@ -442,125 +595,24 @@ const BookDetails = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    ISBN <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.isbn}
-                    onChange={(e) => setForm((prev) => ({ ...prev, isbn: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Nhà xuất bản <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    options={publishers.map(p => ({ value: p.id, label: p.publisherName }))}
-                    value={
-                      publishers.find(p => p.publisherName === form.publisher)
-                        ? { value: publishers.find(p => p.publisherName === form.publisher)!.id, label: form.publisher }
-                        : form.publisher
-                          ? { value: 0, label: form.publisher }
-                          : null
-                    }
-                    onChange={(option) => setForm(prev => ({ ...prev, publisher: option?.label || '' }))}
-                    isSearchable
-                    isClearable
-                    placeholder="Chọn nhà xuất bản"
-                    styles={selectStyles}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-6">
-              <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Số trang
-                  </label>
-                  <input
-                    type="number"
-                    value={form.pages}
-                    onChange={(e) => setForm((prev) => ({ ...prev, pages: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Năm xuất bản <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={form.publicationYear}
-                    onChange={(e) => setForm((prev) => ({ ...prev, publicationYear: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Ngôn ngữ <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={form.language}
-                    onChange={(e) => setForm((prev) => ({ ...prev, language: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                  >
-                    <option value="">Chọn ngôn ngữ</option>
-                    <option value="Vietnamese">Tiếng Việt</option>
-                    <option value="English">English</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-6">
-                
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Tái bản
-                  </label>
-                  <input
-                    type="text"
-                    value={form.edition}
-                    onChange={(e) => setForm((prev) => ({ ...prev, edition: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Kích cỡ (cm)
-                  </label>
-                  <input
-                    type="text"
-                    value={form.size}
-                    onChange={(e) => setForm((prev) => ({ ...prev, size: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    Khối lượng (g)
-                  </label>
-                  <input
-                    type="number"
-                    value={form.weight}
-                    onChange={(e) => setForm((prev) => ({ ...prev, weight: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  Đặc tả
+                  Nhà xuất bản <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  rows={5}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                <Select
+                  options={publishers.map(p => ({ value: p.id, label: p.publisherName }))}
+                  value={
+                    publishers.find(p => p.publisherName === form.publisher)
+                      ? { value: publishers.find(p => p.publisherName === form.publisher)!.id, label: form.publisher }
+                      : form.publisher
+                        ? { value: 0, label: form.publisher }
+                        : null
+                  }
+                  onChange={(option) => setForm(prev => ({ ...prev, publisher: option?.label || '' }))}
+                  isSearchable
+                  isClearable
+                  placeholder="Chọn nhà xuất bản"
+                  styles={selectStyles}
                 />
               </div>
 
@@ -604,25 +656,15 @@ const BookDetails = () => {
                 />
               </div>
             </div>
-
-            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
-              <div className="text-xs text-slate-500">
-                Cập nhật lần cuối: Ngày 11 Tháng 12 Năm 2025 lúc 10:24
-                <br />
-                bởi Nguyễn Văn Thắng
-              </div>
-              <div className="flex gap-3">
-                <button className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-100 flex items-center gap-2">
-                  <RotateCcw size={16} /> Reset
-                </button>
-                <button
-                  className="px-6 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu'}
-                </button>
-              </div>
+            
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end items-center">
+              <button
+                className="px-6 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu Thay Đổi Nhanh'}
+              </button>
             </div>
           </div>
 
@@ -787,7 +829,7 @@ const BookDetails = () => {
                   />
                 ))}
                 <span className="text-slate-400 text-xs ml-2">
-                  4.5 (127 đánh giá)
+                  {form.averageRating} ({form.totalRatings} đánh giá)
                 </span>
               </div>
 
@@ -798,7 +840,7 @@ const BookDetails = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">On Loan:</span>
-                  <span className="text-yellow-400 font-medium">0 bản sao</span>
+                  <span className="text-yellow-400 font-medium">{form.borrowedItems} bản sao</span>
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t border-slate-700">
                   <span className="text-white">Total:</span>

@@ -218,13 +218,13 @@ const BookList = () => {
             <Select
               options={[
                 { value: null, label: 'Tất cả chủ đề' },
-                ...categories.map(cat => ({ value: cat.id, label: cat.categoryName }))
+                ...categories.map(cat => ({ value: cat.id, label: cat.name || cat.categoryName || '' }))
               ]}
               value={
                 selectedCategory === null
                   ? { value: null, label: 'Tất cả chủ đề' }
                   : categories.find(cat => cat.id === selectedCategory)
-                    ? { value: selectedCategory, label: categories.find(cat => cat.id === selectedCategory)?.categoryName || '' }
+                    ? { value: selectedCategory, label: categories.find(cat => cat.id === selectedCategory)?.name || categories.find(cat => cat.id === selectedCategory)?.categoryName || '' }
                     : { value: null, label: 'Tất cả chủ đề' }
               }
               onChange={(option) => {

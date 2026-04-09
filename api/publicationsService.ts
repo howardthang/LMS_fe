@@ -4,7 +4,8 @@ import {
   GetPublicationsParams,
   PaginatedPublications,
   Publication,
-  LibrarianPublicationDetailResponse
+  LibrarianPublicationDetailResponse,
+  UpdatePublicationMetadataRequest
 } from './publicationTypes';
 
 /**
@@ -68,6 +69,52 @@ const publicationsService = {
     return axiosInstance.get(url);
   },
 
+  searchAuthors: async (keyword: string) => {
+    return axiosInstance.get(`/authors?keyword=${keyword}`);
+  },
+
+  createAuthor: async (name: string) => {
+    return axiosInstance.post('/authors', { name });
+  },
+
+  // ===== CATEGORY =====
+  searchCategories: async (keyword: string) => {
+    return axiosInstance.get(`/categories?keyword=${keyword}`);
+  },
+
+  createCategory: async (name: string) => {
+    return axiosInstance.post('/categories', { name });
+  },
+
+  // ===== TAG =====
+  searchTags: async (keyword: string) => {
+    return axiosInstance.get(`/tags?keyword=${keyword}`);
+  },
+
+  createTag: async (name: string) => {
+    return axiosInstance.post('/tags', { name });
+  },
+
+  // ===== PUBLISHER =====
+  searchPublishers: async (keyword: string) => {
+    return axiosInstance.get(`/publishers?keyword=${keyword}`);
+  },
+
+  createPublisher: async (name: string) => {
+    return axiosInstance.post('/publishers', { name });
+  },
+
+
+  uploadFile: async (
+    id: number,
+    file: File
+  ): Promise<ApiResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return axiosInstance.post(`/publications/${id}/file`, formData);
+  },
+
   /**
    * Lấy chi tiết một publication theo ID
    *
@@ -102,13 +149,13 @@ const publicationsService = {
    * @example
    * const updated = await publicationsService.updatePublication(8, {
    *   title: 'Updated Title'
-   * });
+   * });a
    */
-  updatePublication: async (
+  updateMetadata: async (
     id: number,
-    data: Partial<Publication>
-  ): Promise<ApiResponse<Publication>> => {
-    return axiosInstance.put(`/publications/${id}`, data);
+    data: UpdatePublicationMetadataRequest
+  ): Promise<ApiResponse<void>> => {
+    return axiosInstance.put(`/publications/${id}/metadata`, data);
   },
 
   /**

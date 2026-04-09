@@ -67,6 +67,19 @@ export interface Publication {
   updatedAt: string | null;
 }
 
+export interface UpdatePublicationMetadataRequest {
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+  language?: string | null;
+  numberOfPages?: number | null;
+  publicationYear?: number | null;
+  edition?: number | null;
+  size?: string | null;
+  weight?: number | null;
+  aiTargetAudience?: string | null;
+};
+
 // Librarian Response
 export interface LibrarianPublicationResponse {
   publicationId: number;

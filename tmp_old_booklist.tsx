@@ -2,7 +2,7 @@ import { Edit2, Eye, Plus, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import publicationsService from '../../api/publicationsService';
-import { LibrarianPublicationResponse, Category } from '../../api/publicationTypes';
+import { Publication, Category, AvailabilityFilter } from '../../api/publicationTypes';
 import { Book } from '../../types';
 import categoriesService from '../../api/categoriesService';
 import Select from 'react-select';
@@ -13,7 +13,7 @@ const BookList = () => {
   const [loading, setLoading] = useState(true);
 
   // State cho sorting
-  const [sortBy, setSortBy] = useState<string>('createAt');
+  const [sortBy, setSortBy] = useState<'title' | 'publicationYear' | 'createdAt'>('createdAt');
   const [direction, setDirection] = useState<'ASC' | 'DESC'>('DESC');
 
   // State cho search & filters
@@ -26,8 +26,8 @@ const BookList = () => {
   const [selectedYear, setSelectedYear] = useState('');
   const [appliedYear, setAppliedYear] = useState<number | undefined>(undefined);
 
-  // State cho hasItems filter
-  const [hasItems, setHasItems] = useState<boolean | undefined>(undefined);
+  // State cho availability filter
+  const [availability, setAvailability] = useState<AvailabilityFilter>('ALL');
 
   // State cho categories
   const [categories, setCategories] = useState<Category[]>([]);
@@ -66,27 +66,26 @@ const BookList = () => {
           keyword: keyword || undefined,
           categoryId: selectedCategory || undefined,
           year: yearFilterMode === 'custom' ? appliedYear : undefined,
-          hasItems: hasItems,
+          availability: availability !== 'ALL' ? availability : undefined,
           sortBy,
-          sortDir: direction,
+          direction,
           page: currentPage,
           size: pageSize,
         });
 
         if (response.code === 200 && response.data) {
-          // Map từ LibrarianPublicationResponse sang dạng hiển thị trên UI
-          const mappedBooks: Book[] = response.data.content.map((pub: LibrarianPublicationResponse) => ({
-            id: pub.publicationId.toString(),
-            title: pub.subtitle ? `${pub.title}: ${pub.subtitle}` : pub.title,
-            author: pub.authorNames?.join(', ') || 'N/A',
-            isbn: 'N/A',
+          // Map từ Publication sang Book
+          const mappedBooks: Book[] = response.data.content.map((pub: Publication) => ({
+            id: pub.id.toString(),
+            title: pub.title,
+            author: pub.authors.map(a => a.authorName).join(', ') || 'N/A',
+            isbn: pub.isbn,
             year: pub.publicationYear,
-            publisher: 'N/A',
+            publisher: pub.publisher.publisherName,
             totalCopies: pub.totalItems,
-            availableCopies: pub.totalItems, // Giả lập data đang mượn
-            createdAt: pub.createdAt,
-            category: 'N/A',
-            thumbnail: pub.imageCoverUrl || pub.coverImageUrl || '',
+            availableCopies: pub.availableItems,
+            category: pub.categories.map(c => c.categoryName).join(', ') || 'N/A',
+            thumbnail: pub.coverImageUrl || '',
           }));
 
           setBooks(mappedBooks);
@@ -101,10 +100,10 @@ const BookList = () => {
     };
 
     fetchBooks();
-  }, [keyword, selectedCategory, yearFilterMode, appliedYear, hasItems, sortBy, direction, currentPage, pageSize]);
+  }, [keyword, selectedCategory, yearFilterMode, appliedYear, availability, sortBy, direction, currentPage, pageSize]);
 
   // Handler để toggle sort khi click header
-  const handleSort = (field: string) => {
+  const handleSort = (field: 'title' | 'publicationYear') => {
     if (sortBy === field) {
       // Toggle direction
       setDirection(direction === 'DESC' ? 'ASC' : 'DESC');
@@ -136,8 +135,8 @@ const BookList = () => {
     setYearFilterMode('all');
     setSelectedYear('');
     setAppliedYear(undefined);
-    setHasItems(undefined);
-    setSortBy('createAt');
+    setAvailability('ALL');
+    setSortBy('createdAt');
     setDirection('DESC');
     setCurrentPage(0);
   };
@@ -307,9 +306,9 @@ const BookList = () => {
             <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input
                 type="radio"
-                name="hasItemsFilter"
-                checked={hasItems === undefined}
-                onChange={() => setHasItems(undefined)}
+                name="availability"
+                checked={availability === 'ALL'}
+                onChange={() => setAvailability('ALL')}
                 className="text-blue-600 focus:ring-blue-500"
               />
               Tất cả
@@ -317,9 +316,9 @@ const BookList = () => {
             <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input
                 type="radio"
-                name="hasItemsFilter"
-                checked={hasItems === true}
-                onChange={() => setHasItems(true)}
+                name="availability"
+                checked={availability === 'HAS_ITEMS'}
+                onChange={() => setAvailability('HAS_ITEMS')}
                 className="text-blue-600 focus:ring-blue-500"
               />
               Có Items
@@ -327,9 +326,9 @@ const BookList = () => {
             <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input
                 type="radio"
-                name="hasItemsFilter"
-                checked={hasItems === false}
-                onChange={() => setHasItems(false)}
+                name="availability"
+                checked={availability === 'NO_ITEMS'}
+                onChange={() => setAvailability('NO_ITEMS')}
                 className="text-blue-600 focus:ring-blue-500"
               />
               Không có Items
@@ -366,30 +365,14 @@ const BookList = () => {
               >
                 Tiêu Đề {sortBy === 'title' && (direction === 'DESC' ? '↓' : '↑')}
               </th>
-              <th
-                className="px-6 py-4 font-semibold cursor-pointer hover:text-slate-700 select-none"
-                onClick={() => handleSort('authorNames')}
-              >
-                Tác Giả {sortBy === 'authorNames' && (direction === 'DESC' ? '↓' : '↑')}
-              </th>
+              <th className="px-6 py-4 font-semibold">Tác Giả</th>
               <th
                 className="px-6 py-4 font-semibold w-24 cursor-pointer hover:text-slate-700 select-none"
                 onClick={() => handleSort('publicationYear')}
               >
                 Năm {sortBy === 'publicationYear' && (direction === 'DESC' ? '↓' : '↑')}
               </th>
-              <th
-                className="px-6 py-4 font-semibold cursor-pointer hover:text-slate-700 select-none"
-                onClick={() => handleSort('totalItems')}
-              >
-                Số lượng {sortBy === 'totalItems' && (direction === 'DESC' ? '↓' : '↑')}
-              </th>
-              <th
-                className="px-6 py-4 font-semibold cursor-pointer hover:text-slate-700 select-none"
-                onClick={() => handleSort('createAt')}
-              >
-                Ngày tạo {sortBy === 'createAt' && (direction === 'DESC' ? '↓' : '↑')}
-              </th>
+              <th className="px-6 py-4 font-semibold">Số lượng Item</th>
               <th className="px-6 py-4 font-semibold text-right">Actions</th>
             </tr>
           </thead>
@@ -422,25 +405,16 @@ const BookList = () => {
                     <div className="flex items-start gap-4">
                       <Link
                         to={`/librarian/books/${book.id}`}
-                        className={`w-10 h-14 rounded shadow-sm flex-shrink-0 block overflow-hidden ${
-                          !book.thumbnail ? [
+                        className={`w-10 h-14 rounded shadow-sm flex-shrink-0 block ${
+                          [
                             'bg-blue-500',
                             'bg-green-500',
                             'bg-orange-500',
                             'bg-pink-500',
                             'bg-cyan-500',
-                          ][parseInt(book.id || '0') % 5] : ''
+                          ][parseInt(book.id) % 5]
                         }`}
-                      >
-                        {book.thumbnail && (
-                          <img 
-                            src={book.thumbnail} 
-                            alt={book.title} 
-                            className="w-full h-full object-cover block"
-                            referrerPolicy="no-referrer" 
-                          />
-                        )}
-                      </Link>
+                      ></Link>
                       <div>
                         <Link
                           to={`/librarian/books/${book.id}`}
@@ -448,6 +422,9 @@ const BookList = () => {
                         >
                           {book.title}
                         </Link>
+                        <div className="text-xs text-slate-400 mt-1">
+                          ISBN: {book.isbn}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -460,13 +437,17 @@ const BookList = () => {
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium">
                       <span className="text-slate-900">{book.totalCopies}</span>
+                      <span className="text-slate-400 mx-1">/</span>
+                      <span
+                        className={
+                          book.availableCopies && book.availableCopies > 0
+                            ? 'text-green-600'
+                            : 'text-red-500'
+                        }
+                      >
+                        {book.availableCopies} có sẵn
+                      </span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
-                    {book.createdAt ? new Date(book.createdAt).toLocaleDateString('vi-VN', {
-                      day: '2-digit', month: '2-digit', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit'
-                    }) : 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

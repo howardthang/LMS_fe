@@ -35,7 +35,11 @@ type FormState = {
   size: string;
   weight: string;
   pages: string;
+  subtitle: string;
   description: string;
+  aiSummary: string;
+  aiTargetAudience: string;
+  fileUrl: string;
   categories: string[];
   tags: string[];
   coverImageUrl: string | null;
@@ -54,7 +58,11 @@ const emptyForm: FormState = {
   size: '',
   weight: '',
   pages: '',
+  subtitle: '',
   description: '',
+  aiSummary: '',
+  aiTargetAudience: '',
+  fileUrl: '',
   categories: [],
   tags: [],
   coverImageUrl: null,
@@ -104,28 +112,33 @@ const BookDetails = () => {
       if (isCreate) return;
       try {
         setLoading(true);
-        const res = await publicationsService.getPublicationById(Number(id));
+        const res = await publicationsService.getLibrarianPublicationById(Number(id));
         if (res.code === 200 && res.data) {
-          const pub: Publication = res.data;
+          const detail = res.data;
+          const pub = detail.publication;
           setForm({
             title: pub.title ?? '',
-            authors: pub.authors?.length
-              ? pub.authors.map((a) => ({ id: a.id, name: a.authorName }))
+            subtitle: pub.subtitle ?? '',
+            authors: detail.authors?.length
+              ? detail.authors.map((a: any) => ({ id: a.id, name: a.name }))
               : [{ id: null, name: '' }],
             isbn: pub.isbn ?? '',
-            publisher: pub.publisher?.publisherName ?? '',
+            publisher: detail.publisher?.name ?? '',
             publicationYear: pub.publicationYear?.toString() ?? '',
             language: pub.language ?? '',
-            edition: pub.edition ?? '',
+            edition: pub.edition?.toString() ?? '',
             size: pub.size ?? '',
             weight: pub.weight?.toString() ?? '',
             pages: pub.numberOfPages?.toString() ?? '',
             description: pub.description ?? '',
-            categories: pub.categories?.map((c) => c.categoryName) ?? [],
-            tags: pub.tags?.map((t) => t.tagName) ?? [],
+            aiSummary: pub.aiSummary ?? '',
+            aiTargetAudience: pub.aiTargetAudience ?? '',
+            fileUrl: pub.fileUrl ?? '',
+            categories: detail.categories?.map((c: any) => c.name) ?? [],
+            tags: [], // Tags no longer explicitly in detail response
             coverImageUrl: pub.coverImageUrl ?? null,
-            totalItems: pub.totalItems ?? 0,
-            availableItems: pub.availableItems ?? 0
+            totalItems: 0, // Fallback since new API might not include items stat
+            availableItems: 0
           });
         }
       } catch (error) {
@@ -212,8 +225,11 @@ const BookDetails = () => {
 
     const payload = {
       title: form.title.trim(),
-      subtitle: '',
+      subtitle: form.subtitle.trim() || '',
       description: form.description || '',
+      aiSummary: form.aiSummary || '',
+      aiTargetAudience: form.aiTargetAudience || '',
+      fileUrl: form.fileUrl || '',
       language: form.language || '',
       numberOfPages,
       publicationYear,

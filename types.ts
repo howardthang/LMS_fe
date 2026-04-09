@@ -20,6 +20,7 @@ export interface Book {
   tags?: string[];
   description?: string;
   format?: 'Print' | 'Ebook' | 'E-book';
+  createdAt?: string;
 
   // Dashboard specific
   borrowDate?: string;

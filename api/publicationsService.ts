@@ -4,6 +4,7 @@ import {
   GetPublicationsParams,
   PaginatedPublications,
   Publication,
+  LibrarianPublicationDetailResponse
 } from './publicationTypes';
 
 /**
@@ -47,12 +48,12 @@ const publicationsService = {
       queryParams.append('year', params.year.toString());
     }
 
-    if (params?.availability) {
-      queryParams.append('availability', params.availability);
+    if (params?.hasItems !== undefined) {
+      queryParams.append('hasItems', params.hasItems.toString());
     }
 
-    if (params?.direction) {
-      queryParams.append('direction', params.direction);
+    if (params?.sortDir) {
+      queryParams.append('sortDir', params.sortDir);
     }
 
     // Page mặc định là 0 (page đầu tiên)
@@ -62,7 +63,7 @@ const publicationsService = {
     queryParams.append('size', (params?.size ?? 10).toString());
 
     const queryString = queryParams.toString();
-    const url = `/publications${queryString ? `?${queryString}` : ''}`;
+    const url = `/publications/librarian${queryString ? `?${queryString}` : ''}`;
 
     return axiosInstance.get(url);
   },
@@ -73,10 +74,10 @@ const publicationsService = {
    * @example
    * const publication = await publicationsService.getPublicationById(8);
    */
-  getPublicationById: async (
+  getLibrarianPublicationById: async (
     id: number
-  ): Promise<ApiResponse<Publication>> => {
-    return axiosInstance.get(`/publications/${id}`);
+  ): Promise<ApiResponse<LibrarianPublicationDetailResponse>> => {
+    return axiosInstance.get(`/publications/librarian/${id}`);
   },
 
   /**

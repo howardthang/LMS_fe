@@ -66,6 +66,19 @@ export interface Publication {
   updatedAt: string | null;
 }
 
+// Librarian Response
+export interface LibrarianPublicationResponse {
+  publicationId: number;
+  title: string;
+  subtitle: string | null;
+  authorNames: string[];
+  publicationYear: number;
+  totalItems: number;
+  createdAt: string;
+  coverImageUrl?: string;
+  imageCoverUrl?: string; // Tên biến hỗ trợ trường hợp sai chính tả
+}
+
 // API Response wrapper
 export interface ApiResponse<T> {
   code: number;
@@ -73,11 +86,44 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-// Paginated response for publications
+// Paginated response for publications (Librarian payload)
+// API Response wrapper cho Librarian Publication Detail
+export interface LibrarianPublicationDetailResponse {
+  publication: {
+    id: number;
+    isbn: string;
+    title: string;
+    subtitle: string | null;
+    description: string;
+    language: string;
+    numberOfPages: number;
+    aiSummary: string;
+    aiTargetAudience: string;
+    fileUrl: string;
+    publicationYear: number;
+    edition: string | number;
+    coverImageUrl: string;
+    size: string;
+    weight: number;
+  };
+  publisher: {
+    id: number;
+    name: string;
+  };
+  authors: {
+    id: number;
+    name: string;
+  }[];
+  categories: {
+    id: number;
+    name: string;
+  }[];
+}
+
 export interface PaginatedPublications {
-  content: Publication[];
-  page: number;
-  size: number;
+  content: LibrarianPublicationResponse[];
+  currentPage: number;
+  pageSize: number;
   totalElements: number;
   totalPages: number;
   first: boolean;
@@ -92,9 +138,9 @@ export interface GetPublicationsParams {
   keyword?: string;
   categoryId?: number;
   year?: number;
-  availability?: AvailabilityFilter;
-  sortBy?: 'createdAt' | 'title' | 'publicationYear' | 'updatedAt';
-  direction?: 'ASC' | 'DESC';
+  hasItems?: boolean;
+  sortBy?: string;
+  sortDir?: 'ASC' | 'DESC';
   page?: number;
   size?: number;
 }

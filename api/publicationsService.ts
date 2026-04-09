@@ -120,6 +120,25 @@ const publicationsService = {
   deletePublication: async (id: number): Promise<ApiResponse<void>> => {
     return axiosInstance.delete(`/publications/${id}`);
   },
+
+  /**
+   * Cập nhật ảnh bìa publication
+   *
+   * @example
+   * await publicationsService.updatePublicationCover(8, file);
+   */
+  updatePublicationCover: async (
+    id: number,
+    file: File
+  ): Promise<ApiResponse<string>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return axiosInstance.post(`/publications/${id}/cover`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 export default publicationsService;

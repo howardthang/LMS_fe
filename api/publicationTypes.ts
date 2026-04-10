@@ -63,8 +63,6 @@ export interface Publication {
   tags: Tag[];
   totalItems: number;
   availableItems: number;
-  createdAt: string | null;
-  updatedAt: string | null;
 }
 
 export interface UpdatePublicationMetadataRequest {
@@ -79,6 +77,13 @@ export interface UpdatePublicationMetadataRequest {
   weight?: number | null;
   aiTargetAudience?: string | null;
 };
+
+export interface UpdatePublicationRelationsRequest {
+  publisherId: number | null;
+  authorIds: (number | null)[];
+  categoryIds: (number | null)[];
+  tagIds: (number | null)[];
+}
 
 // Librarian Response
 export interface LibrarianPublicationResponse {

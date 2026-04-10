@@ -17,11 +17,7 @@ import axios, {
 // Tạo Axios instance với cấu hình base
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
-  timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 10000,
-  headers: {
-    "Content-Type": "application/json",
-    "ngrok-skip-browser-warning": "69420", // Bypass màn hình cảnh báo của ngrok
-  },
+  timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 10000
 });
 
 /**
@@ -137,7 +133,7 @@ axiosInstance.interceptors.response.use(
             const baseURL =
               import.meta.env.VITE_API_BASE_URL ||
               'http://localhost:8080/api/v1';
-              
+
             const res = await axios.post(
               `${baseURL}/auth/refresh-accesstoken`,
               {},
@@ -163,7 +159,7 @@ axiosInstance.interceptors.response.use(
               if (originalRequest.headers) {
                 originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
               }
-              
+
               processQueue(null, newAccessToken);
               return axiosInstance(originalRequest);
             } else {

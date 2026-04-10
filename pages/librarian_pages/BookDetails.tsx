@@ -17,17 +17,16 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import Select from 'react-select';
-import axiosInstance from '../../api/axiosInstance';
-import AsyncCreatableSelectField from '../../components/AsyncCreatableSelectField';
 import publicationsService from '../../api/publicationsService';
 import { Author, Category, Publisher, Tag } from '../../api/publicationTypes';
+import AsyncCreatableSelectField from '../../components/AsyncCreatableSelectField';
+import { log } from 'console';
 
 type FormState = {
   title: string;
   authors: { id: number | null; name: string }[];
   isbn: string;
-  publisher: string;
+  publisher: { id: number | null; name: string };
   publicationYear: string;
   language: string;
   edition: string;
@@ -39,8 +38,8 @@ type FormState = {
   aiSummary: string;
   aiTargetAudience: string;
   fileUrl: string;
-  categories: string[];
-  tags: string[];
+  categories: { id: number | null; name: string }[];
+  tags: { id: number | null; name: string }[];
   coverImageUrl: string | null;
   totalItems: number;
   availableItems: number;
@@ -67,7 +66,7 @@ const emptyForm: FormState = {
   title: '',
   authors: [{ id: null, name: '' }],
   isbn: '',
-  publisher: '',
+  publisher: { id: null, name: '' },
   publicationYear: '',
   language: '',
   edition: '',
@@ -106,6 +105,10 @@ const BookDetails = () => {
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [isEditingRelations, setIsEditingRelations] = useState(isCreate);
+  const [savingRelations, setSavingRelations] = useState(false);
+  const [metadataSnapshot, setMetadataSnapshot] = useState<Partial<FormState> | null>(null);
+  const [relationsSnapshot, setRelationsSnapshot] = useState<Partial<FormState> | null>(null);
 
   // Fetch publication by id
   useEffect(() => {
@@ -124,7 +127,9 @@ const BookDetails = () => {
               ? detail.authors.map((a: any) => ({ id: a.id, name: a.name }))
               : [{ id: null, name: '' }],
             isbn: pub.isbn ?? '',
-            publisher: detail.publisher?.name ?? '',
+            publisher: detail.publisher
+              ? { id: detail.publisher.id, name: detail.publisher.name }
+              : { id: null, name: '' },
             publicationYear: pub.publicationYear?.toString() ?? '',
             language: pub.language ?? '',
             edition: pub.edition?.toString() ?? '',
@@ -135,8 +140,12 @@ const BookDetails = () => {
             aiSummary: pub.aiSummary ?? '',
             aiTargetAudience: pub.aiTargetAudience ?? '',
             fileUrl: pub.fileUrl ?? '',
-            categories: detail.categories?.map((c: any) => c.name) ?? [],
-            tags: detail.tags?.map((t: any) => t.name) ?? [],
+            categories: detail.categories?.length
+              ? detail.categories.map((c: any) => ({ id: c.id, name: c.name }))
+              : [{ id: null, name: '' }],
+            tags: detail.tags?.length
+              ? detail.tags.map((t: any) => ({ id: t.id, name: t.name }))
+              : [{ id: null, name: '' }],
             coverImageUrl: pub.coverImageUrl ?? null,
             totalItems: detail.items?.totalItems ?? 0,
             availableItems: detail.items?.totalAvailableItems ?? 0,
@@ -158,6 +167,47 @@ const BookDetails = () => {
     () => (form.authors.length ? form.authors : [{ id: null, name: '' }]),
     [form.authors]
   );
+
+
+
+  const handleUpdateRelations = async () => {
+    if (!id || id === 'new') return;
+
+    try {
+      setSavingRelations(true);
+
+      const payload = {
+        publisherId: form.publisher.id,
+
+        authorIds: form.authors
+          .filter(a => a.id)
+          .map(a => a.id),
+
+        categoryIds: form.categories
+          .filter(c => c.id)
+          .map(c => c.id),
+
+        tagIds: form.tags
+          .filter(t => t.id)
+          .map(t => t.id),
+      };
+
+      const res = await publicationsService.updateRelations(Number(id), payload);
+
+      if (res.code === 200) {
+        alert('Cập nhật liên kết thành công');
+        setRelationsSnapshot(null);
+        setIsEditingRelations(false);
+      } else {
+        alert(res.message || 'Cập nhật thất bại');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi cập nhật');
+    } finally {
+      setSavingRelations(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!id || id === 'new') {
@@ -181,9 +231,10 @@ const BookDetails = () => {
       const res = await publicationsService.uploadFile(Number(id), file);
 
       if (res.code === 200) {
+        console.log("haha ", res.data);
         setForm(prev => ({
           ...prev,
-          fileUrl: res.data.url,
+          fileUrl: res.data,
         }));
 
         setUploadedFileName(file.name);
@@ -211,7 +262,7 @@ const BookDetails = () => {
 
   const loadAuthorOptions = async (input: string) => {
     const res = await publicationsService.searchAuthors(input);
-    return res.data.map((a: any) => ({
+    return (res.data || []).map((a: any) => ({
       value: a.id,
       label: a.name,
     }));
@@ -352,7 +403,17 @@ const BookDetails = () => {
 
     const payload = {
       title: form.title.trim(),
+      isbn: form.isbn?.trim() || null,
       subtitle: form.subtitle?.trim() || null,
+      pages: '',
+      aiSummary: '',
+      fileUrl: '',
+      categories: [],
+      tags: [],
+      coverImageUrl: null,
+      totalItems: 0,
+      publisher: { id: null, name: '' },
+      authors: [{ id: null, name: '' }],
       description: form.description || null,
       language: form.language || null,
       numberOfPages: form.pages ? Number(form.pages) : null,
@@ -377,6 +438,7 @@ const BookDetails = () => {
         alert('Cập nhật metadata thành công');
 
         // 🔥 QUAN TRỌNG
+        setMetadataSnapshot(null);
         setIsEditingMetadata(false);
       } else {
         alert(res.message || 'Cập nhật thất bại');
@@ -384,6 +446,43 @@ const BookDetails = () => {
     } catch (error) {
       console.error('Lỗi update metadata', error);
       alert('Cập nhật thất bại');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) {
+      alert('Tiêu đề không được để trống.');
+      return;
+    }
+
+    const payload = {
+      title: form.title.trim(),
+      subtitle: form.subtitle?.trim() || null,
+      isbn: form.isbn.trim() || null,
+      description: form.description || null,
+      language: form.language || null,
+      numberOfPages: form.pages ? Number(form.pages) : null,
+      publicationYear: form.publicationYear ? Number(form.publicationYear) : null,
+      edition: form.edition ? Number(form.edition) : null,
+      size: form.size || null,
+      weight: form.weight ? Number(form.weight) : null,
+      aiTargetAudience: form.aiTargetAudience || null,
+    };
+
+    try {
+      setSaving(true);
+      const res = await publicationsService.createPublication(payload);
+      if (res.code === 200 && res.data?.id) {
+        navigate(`/librarian/books/${res.data.id}`);
+      } else {
+        alert(res.message || 'Tạo ấn phẩm thất bại');
+      }
+    } catch (error) {
+      console.error('Lỗi tạo ấn phẩm', error);
+      alert('Tạo ấn phẩm thất bại');
     } finally {
       setSaving(false);
     }
@@ -456,7 +555,7 @@ const BookDetails = () => {
             </h1>
           </div>
         </div>
-        <div className="flex gap-3">
+        {/* <div className="flex gap-3">
           <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50">
             ... Thêm
           </button>
@@ -469,7 +568,7 @@ const BookDetails = () => {
           <button className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 flex items-center gap-2">
             <Plus size={18} /> Lưu & Thêm đầu sách
           </button>
-        </div>
+        </div> */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -488,7 +587,25 @@ const BookDetails = () => {
               {!isCreate && (
                 <button
                   type="button"
-                  onClick={() => setIsEditingMetadata(!isEditingMetadata)}
+                  onClick={() => {
+                    if (!isEditingMetadata) {
+                      setMetadataSnapshot({
+                        title: form.title,
+                        subtitle: form.subtitle,
+                        description: form.description,
+                        language: form.language,
+                        pages: form.pages,
+                        publicationYear: form.publicationYear,
+                        edition: form.edition,
+                        size: form.size,
+                        weight: form.weight,
+                        aiTargetAudience: form.aiTargetAudience,
+                      });
+                    } else {
+                      if (metadataSnapshot) setForm(prev => ({ ...prev, ...metadataSnapshot }));
+                    }
+                    setIsEditingMetadata(!isEditingMetadata);
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${isEditingMetadata
                     ? 'bg-red-500 text-white hover:bg-red-600'
                     : 'bg-white text-secondary hover:bg-slate-50'
@@ -683,27 +800,38 @@ const BookDetails = () => {
 
             {isEditingMetadata && (
               <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
-                <div className="text-xs text-slate-500">
-                  Đã được đồng bộ với hệ thống.
+                <div className="text-sm text-slate-600">
+                  {isCreate ? 'Điền thông tin cơ bản để tạo ấn phẩm' : 'Lưu thay đổi thông tin ấn phẩm'}
                 </div>
                 <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingMetadata(false)}
-                    className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-100 flex items-center gap-2"
-                  >
-                    <X size={16} /> Hủy
-                  </button>
+                  {!isCreate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (metadataSnapshot) setForm(prev => ({ ...prev, ...metadataSnapshot }));
+                        setIsEditingMetadata(false);
+                      }}
+                      className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-100 flex items-center gap-2"
+                    >
+                      <X size={16} /> Hủy
+                    </button>
+                  )}
                   <button
                     className="px-6 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    onClick={handleUpdateMetadata}
+                    onClick={isCreate ? handleCreate : handleUpdateMetadata}
                     disabled={saving}
                   >
-                    <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu Metadata'}
+                    <Save size={16} />
+                    {saving
+                      ? (isCreate ? 'Đang tạo...' : 'Đang lưu...')
+                      : (isCreate ? 'Tạo Ấn Phẩm' : 'Lưu Metadata')
+                    }
                   </button>
                 </div>
               </div>
             )}
+
+
           </div>
 
           {/* Cover Image Management Card */}
@@ -803,25 +931,25 @@ const BookDetails = () => {
             </div>
 
             <div className="p-6 space-y-4">
-              {!form.fileUrl ? (
+              {isCreate ? (
+                <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-8 text-center">
+                  <Upload size={48} className="text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-slate-600 font-medium">Vui lòng tạo ấn phẩm trước</h3>
+                  <p className="text-slate-400 text-sm mt-1">
+                    Bạn cần lưu thông tin ấn phẩm cơ bản trước khi có thể tải lên file.
+                  </p>
+                </div>
+              ) : !form.fileUrl ? (
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center">
                   <Upload size={40} className="mx-auto text-slate-300 mb-3" />
-
-                  <p className="text-slate-600 font-medium">
-                    Kéo thả file hoặc chọn file để upload
-                  </p>
-
-                  <p className="text-xs text-slate-400 mt-1">
-                    Hỗ trợ PDF, EPUB, tối đa 20MB
-                  </p>
-
+                  <p className="text-slate-600 font-medium">Kéo thả file hoặc chọn file để upload</p>
+                  <p className="text-xs text-slate-400 mt-1">Hỗ trợ PDF, EPUB, tối đa 20MB</p>
                   <button
                     onClick={() => document.getElementById('file-upload-input')?.click()}
                     className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700"
                   >
                     Chọn file
                   </button>
-
                   <input
                     id="file-upload-input"
                     type="file"
@@ -832,38 +960,21 @@ const BookDetails = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-4 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
-                  <div className="w-10 h-10 flex items-center justify-center bg-teal-100 rounded">
-                    📄
-                  </div>
-
+                  <div className="w-10 h-10 flex items-center justify-center bg-teal-100 rounded">📄</div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-teal-800">
-                      {uploadedFileName || 'File đã upload'}
-                    </p>
-                    <p className="text-xs text-teal-600 truncate">
-                      {form.fileUrl}
-                    </p>
+                    <p className="text-sm font-medium text-teal-800">{uploadedFileName || 'File đã upload'}</p>
+                    <p className="text-xs text-teal-600 truncate">{form.fileUrl}</p>
                   </div>
-
                   <div className="flex gap-2">
-                    <a
-                      href={form.fileUrl}
-                      target="_blank"
-                      className="text-teal-600 hover:text-teal-800"
-                    >
+                    <a href={form.fileUrl} target="_blank" className="text-teal-600 hover:text-teal-800">
                       <ExternalLink size={16} />
                     </a>
-
                     <button
-                      onClick={() => {
-                        setForm(prev => ({ ...prev, fileUrl: '' }));
-                        setUploadedFileName(null);
-                      }}
+                      onClick={() => { setForm(prev => ({ ...prev, fileUrl: '' })); setUploadedFileName(null); }}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash2 size={16} />
                     </button>
-
                     <button
                       onClick={() => document.getElementById('file-upload-input')?.click()}
                       className="text-slate-500 hover:text-slate-700"
@@ -886,14 +997,50 @@ const BookDetails = () => {
 
           {/* Relationships & Classification Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-6">
-            <div className="bg-blue-600 px-6 py-3 border-b border-blue-700">
-              <h2 className="text-white font-semibold flex items-center gap-2">
-                <Copy size={18} /> Phân loại & Liên kết
-              </h2>
-              <p className="text-blue-100 text-xs">
-                Quản lý tác giả, nhà xuất bản, danh mục và thẻ phân loại
-              </p>
+            <div className="bg-blue-600 px-6 py-3 border-b border-blue-700 flex justify-between items-center">
+              <div>
+                <h2 className="text-white font-semibold flex items-center gap-2">
+                  <Copy size={18} /> Phân loại & Liên kết
+                </h2>
+                <p className="text-blue-100 text-xs">
+                  Quản lý tác giả, nhà xuất bản, danh mục và thẻ phân loại
+                </p>
+              </div>
+
+              {!isCreate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isEditingRelations) {
+                      setRelationsSnapshot({
+                        publisher: form.publisher,
+                        authors: [...form.authors],
+                        categories: [...form.categories],
+                        tags: [...form.tags],
+                      });
+                    } else {
+                      if (relationsSnapshot) setForm(prev => ({ ...prev, ...relationsSnapshot }));
+                    }
+                    setIsEditingRelations(!isEditingRelations);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${isEditingRelations
+                    ? 'bg-red-500 text-white hover:bg-red-600'
+                    : 'bg-white text-blue-600 hover:bg-slate-50'
+                    }`}
+                >
+                  {isEditingRelations ? (
+                    <>
+                      <X size={14} /> Hủy
+                    </>
+                  ) : (
+                    <>
+                      <Edit2 size={14} /> Chỉnh sửa
+                    </>
+                  )}
+                </button>
+              )}
             </div>
+
 
             <div className="p-6 space-y-6">
               <div>
@@ -901,17 +1048,23 @@ const BookDetails = () => {
                   Nhà xuất bản <span className="text-red-500">*</span>
                 </label>
                 <AsyncCreatableSelectField
+                  isDisabled={!isEditingRelations}
                   value={
                     form.publisher
-                      ? { value: null, label: form.publisher }
+                      ? { value: form.publisher.id, label: form.publisher.name }
                       : null
                   }
                   loadOptions={loadPublisherOptions}
                   onCreate={createPublisherOption}
-                  onChange={(selected: any) => {
-                    setForm(prev => ({
+                  onChange={(option: any) => {
+                    setForm((prev) => ({
                       ...prev,
-                      publisher: selected?.label || '',
+                      publisher: option
+                        ? {
+                          id: option.value ?? null,
+                          name: option.label ?? '',
+                        }
+                        : { id: null, name: '' },
                     }));
                   }}
                   placeholder="Chọn hoặc nhập nhà xuất bản"
@@ -924,6 +1077,7 @@ const BookDetails = () => {
                 </label>
                 <AsyncCreatableSelectField
                   isMulti
+                  isDisabled={!isEditingRelations}
                   value={form.authors.map(a => ({
                     value: a.id,
                     label: a.name,
@@ -949,17 +1103,20 @@ const BookDetails = () => {
                 </label>
                 <AsyncCreatableSelectField
                   isMulti
-                  value={form.categories.map(name => ({
-                    value: null,
-                    label: name,
+                  isDisabled={!isEditingRelations}
+                  value={form.categories.map(c => ({
+                    value: c.id,
+                    label: c.name,
                   }))}
                   loadOptions={loadCategoryOptions}
                   onCreate={createCategoryOption}
                   onChange={(selected: any[]) => {
-                    setForm(prev => ({
-                      ...prev,
-                      categories: selected.map(s => s.label),
+                    const mapped = selected.map(s => ({
+                      id: typeof s.value === 'number' ? s.value : null,
+                      name: s.label,
                     }));
+
+                    setForm(prev => ({ ...prev, categories: mapped }));
                   }}
                   placeholder="Chọn hoặc nhập danh mục"
                 />
@@ -971,32 +1128,53 @@ const BookDetails = () => {
                 </label>
                 <AsyncCreatableSelectField
                   isMulti
-                  value={form.tags.map(name => ({
-                    value: null,
-                    label: name,
+                  isDisabled={!isEditingRelations}
+                  value={form.tags.map(t => ({
+                    value: t.id,
+                    label: t.name,
                   }))}
                   loadOptions={loadTagOptions}
                   onCreate={createTagOption}
                   onChange={(selected: any[]) => {
-                    setForm(prev => ({
-                      ...prev,
-                      tags: selected.map(s => s.label),
+                    const mapped = selected.map(s => ({
+                      id: typeof s.value === 'number' ? s.value : null,
+                      name: s.label,
                     }));
+
+                    setForm(prev => ({ ...prev, tags: mapped }));
                   }}
                   placeholder="Chọn hoặc nhập tag"
                 />
               </div>
             </div>
 
-            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end items-center">
-              <button
-                className="px-6 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                onClick={handleUpdateMetadata}
-                disabled={saving}
-              >
-                <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu Thay Đổi Nhanh'}
-              </button>
-            </div>
+            {isEditingRelations && (
+              <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                <div className="text-xs text-slate-500">lưu thay đổi liên kết</div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (relationsSnapshot) setForm(prev => ({ ...prev, ...relationsSnapshot }));
+                      setIsEditingRelations(false);
+                    }}
+                    className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-100 flex items-center gap-2"
+                  >
+                    <X size={16} /> Hủy
+                  </button>
+
+                  <button
+                    onClick={handleUpdateRelations}
+                    disabled={savingRelations}
+                    className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
+                  >
+                    <Save size={16} />
+                    {savingRelations ? 'Đang lưu...' : 'Lưu liên kết'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Advanced Actions */}
@@ -1131,7 +1309,7 @@ const BookDetails = () => {
                       {form.title || 'Chưa có tiêu đề'}
                     </div>
                     <div className="text-xs opacity-80 line-clamp-2">
-                      {form.publisher || 'Chưa có NXB'}
+                      {form.publisher.name || 'Chưa có NXB'}
                     </div>
                     <div className="mt-auto text-xs font-mono opacity-70">
                       {form.publicationYear || '----'}

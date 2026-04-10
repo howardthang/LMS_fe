@@ -5,7 +5,8 @@ import {
   PaginatedPublications,
   Publication,
   LibrarianPublicationDetailResponse,
-  UpdatePublicationMetadataRequest
+  UpdatePublicationMetadataRequest,
+  UpdatePublicationRelationsRequest
 } from './publicationTypes';
 
 /**
@@ -104,15 +105,22 @@ const publicationsService = {
     return axiosInstance.post('/publishers', { name });
   },
 
+  updateRelations: async (
+    id: number,
+    data: UpdatePublicationRelationsRequest
+  ): Promise<ApiResponse<void>> => {
+    return axiosInstance.put(`/publications/${id}/relations`, data);
+  },
+
 
   uploadFile: async (
     id: number,
     file: File
-  ): Promise<ApiResponse<{ url: string }>> => {
+  ): Promise<ApiResponse<string>> => {
     const formData = new FormData();
     formData.append('file', file);
 
-    return axiosInstance.post(`/publications/${id}/file`, formData);
+    return axiosInstance.put(`/publications/${id}/file`, formData);
   },
 
   /**
@@ -180,11 +188,7 @@ const publicationsService = {
   ): Promise<ApiResponse<string>> => {
     const formData = new FormData();
     formData.append('file', file);
-    return axiosInstance.post(`/publications/${id}/cover`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    return axiosInstance.put(`/publications/${id}/cover`, formData);
   },
 };
 

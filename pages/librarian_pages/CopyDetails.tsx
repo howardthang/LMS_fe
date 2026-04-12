@@ -479,7 +479,7 @@ const CopyDetails = () => {
                   </div>
 
                   <Link
-                    to={`/librarian/publications/${publication.id}`}
+                    to={`/librarian/books/${(publication as any)?.publication?.id || publication.id}`}
                     className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded flex items-center gap-2 hover:bg-blue-700"
                   >
                     <ExternalLink size={14} /> Xem ấn phẩm

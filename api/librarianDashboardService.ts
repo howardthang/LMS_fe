@@ -61,7 +61,7 @@ export interface DashboardChartsResponse {
 }
 
 export interface RiskyUser {
-  userId: number;
+  userId: string;
   fullName: string;
   email: string;
   phoneNumber: string | null;

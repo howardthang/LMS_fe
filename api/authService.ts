@@ -18,7 +18,7 @@ export interface AuthUrlResponse {
 
 export interface RegisterRequest {
   fullName: string;
-  studentId: number;
+  studentId: string;
   email: string;
   password: string;
   confirmPassword: string;

@@ -2,32 +2,13 @@ import axiosInstance from './axiosInstance';
 import {
   ApiResponse,
   GetPublicationsParams,
-  PaginatedPublications,
-  Publication,
   LibrarianPublicationDetailResponse,
-  UpdatePublicationMetadataRequest,
-  UpdatePublicationRelationsRequest
+  PaginatedPublications,
+  Publication
 } from './publicationTypes';
 
-/**
- * Publications Service
- *
- * Service để gọi API Publications (Books) cho Librarian
- */
-
 const publicationsService = {
-  /**
-   * Lấy danh sách publications với search, filter, sort, pagination
-   *
-   * @example
-   * const result = await publicationsService.getAllPublications({
-   *   keyword: 'Software',
-   *   sortBy: 'createdAt',
-   *   direction: 'DESC',
-   *   page: 0,
-   *   size: 10
-   * });
-   */
+
   getAllPublications: async (
     params?: GetPublicationsParams
   ): Promise<ApiResponse<PaginatedPublications>> => {
@@ -80,7 +61,7 @@ const publicationsService = {
 
   // ===== CATEGORY =====
   searchCategories: async (keyword: string) => {
-    return axiosInstance.get(`/categories?keyword=${keyword}`);
+    return axiosInstance.get(`/categories/search?keyword=${keyword}`);
   },
 
   createCategory: async (name: string) => {
@@ -105,16 +86,16 @@ const publicationsService = {
     return axiosInstance.post('/publishers', { name });
   },
 
-  updateRelations: async (
-    id: number,
-    data: UpdatePublicationRelationsRequest
-  ): Promise<ApiResponse<void>> => {
-    return axiosInstance.put(`/publications/${id}/relations`, data);
+  updatePublication: async (
+    id: string,
+    data: Partial<Publication>
+  ): Promise<ApiResponse<Publication>> => {
+    return axiosInstance.put(`/publications/${id}`, data);
   },
 
 
   uploadFile: async (
-    id: number,
+    id: string,
     file: File
   ): Promise<ApiResponse<string>> => {
     const formData = new FormData();
@@ -123,67 +104,25 @@ const publicationsService = {
     return axiosInstance.put(`/publications/${id}/file`, formData);
   },
 
-  /**
-   * Lấy chi tiết một publication theo ID
-   *
-   * @example
-   * const publication = await publicationsService.getPublicationById(8);
-   */
+ 
   getLibrarianPublicationById: async (
-    id: number
+    id: string
   ): Promise<ApiResponse<LibrarianPublicationDetailResponse>> => {
     return axiosInstance.get(`/publications/librarian/${id}`);
   },
 
-  /**
-   * Tạo publication mới
-   *
-   * @example
-   * const newPublication = await publicationsService.createPublication({
-   *   isbn: '978-0-123456-78-9',
-   *   title: 'New Book',
-   *   ...
-   * });
-   */
   createPublication: async (
     data: Partial<Publication>
   ): Promise<ApiResponse<Publication>> => {
     return axiosInstance.post('/publications', data);
   },
 
-  /**
-   * Cập nhật publication
-   *
-   * @example
-   * const updated = await publicationsService.updatePublication(8, {
-   *   title: 'Updated Title'
-   * });a
-   */
-  updateMetadata: async (
-    id: number,
-    data: UpdatePublicationMetadataRequest
-  ): Promise<ApiResponse<void>> => {
-    return axiosInstance.put(`/publications/${id}/metadata`, data);
-  },
-
-  /**
-   * Xóa publication
-   *
-   * @example
-   * await publicationsService.deletePublication(8);
-   */
-  deletePublication: async (id: number): Promise<ApiResponse<void>> => {
+  deletePublication: async (id: string): Promise<ApiResponse<void>> => {
     return axiosInstance.delete(`/publications/${id}`);
   },
 
-  /**
-   * Cập nhật ảnh bìa publication
-   *
-   * @example
-   * await publicationsService.updatePublicationCover(8, file);
-   */
   updatePublicationCover: async (
-    id: number,
+    id: string,
     file: File
   ): Promise<ApiResponse<string>> => {
     const formData = new FormData();

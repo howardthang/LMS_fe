@@ -6,27 +6,25 @@ import {
   ExternalLink,
   Eye,
   Image as ImageIcon,
-  Plus,
   QrCode,
   RotateCcw,
   Save,
   Star,
   Trash2,
   Upload,
-  X,
+  X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import publicationsService from '../../api/publicationsService';
 import { Author, Category, Publisher, Tag } from '../../api/publicationTypes';
 import AsyncCreatableSelectField from '../../components/AsyncCreatableSelectField';
-import { log } from 'console';
 
 type FormState = {
   title: string;
-  authors: { id: number | null; name: string }[];
+  authors: { id: string | null; name: string }[];
   isbn: string;
-  publisher: { id: number | null; name: string };
+  publisher: { id: string | null; name: string };
   publicationYear: string;
   language: string;
   edition: string;
@@ -38,8 +36,8 @@ type FormState = {
   aiSummary: string;
   aiTargetAudience: string;
   fileUrl: string;
-  categories: { id: number | null; name: string }[];
-  tags: { id: number | null; name: string }[];
+  categories: { id: string | null; name: string }[];
+  tags: { id: string | null; name: string }[];
   coverImageUrl: string | null;
   totalItems: number;
   availableItems: number;
@@ -105,10 +103,7 @@ const BookDetails = () => {
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [isEditingRelations, setIsEditingRelations] = useState(isCreate);
-  const [savingRelations, setSavingRelations] = useState(false);
   const [metadataSnapshot, setMetadataSnapshot] = useState<Partial<FormState> | null>(null);
-  const [relationsSnapshot, setRelationsSnapshot] = useState<Partial<FormState> | null>(null);
 
   // Fetch publication by id
   useEffect(() => {
@@ -116,7 +111,7 @@ const BookDetails = () => {
       if (isCreate) return;
       try {
         setLoading(true);
-        const res = await publicationsService.getLibrarianPublicationById(Number(id));
+        const res = await publicationsService.getLibrarianPublicationById(id);
         if (res.code === 200 && res.data) {
           const detail = res.data;
           const pub = detail.publication;
@@ -168,47 +163,6 @@ const BookDetails = () => {
     [form.authors]
   );
 
-
-
-  const handleUpdateRelations = async () => {
-    if (!id || id === 'new') return;
-
-    try {
-      setSavingRelations(true);
-
-      const payload = {
-        publisherId: form.publisher.id,
-
-        authorIds: form.authors
-          .filter(a => a.id)
-          .map(a => a.id),
-
-        categoryIds: form.categories
-          .filter(c => c.id)
-          .map(c => c.id),
-
-        tagIds: form.tags
-          .filter(t => t.id)
-          .map(t => t.id),
-      };
-
-      const res = await publicationsService.updateRelations(Number(id), payload);
-
-      if (res.code === 200) {
-        alert('Cập nhật liên kết thành công');
-        setRelationsSnapshot(null);
-        setIsEditingRelations(false);
-      } else {
-        alert(res.message || 'Cập nhật thất bại');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Lỗi cập nhật');
-    } finally {
-      setSavingRelations(false);
-    }
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!id || id === 'new') {
       alert('Vui lòng lưu ấn phẩm trước khi upload file.');
@@ -228,7 +182,7 @@ const BookDetails = () => {
     try {
       setUploadingFile(true);
 
-      const res = await publicationsService.uploadFile(Number(id), file);
+      const res = await publicationsService.uploadFile(id, file);
 
       if (res.code === 200) {
         console.log("haha ", res.data);
@@ -325,7 +279,7 @@ const BookDetails = () => {
     };
   };
 
-  const updateAuthor = (idx: number, name: string, matchedId?: number | null) => {
+  const updateAuthor = (idx: string, name: string, matchedId?: string | null) => {
     setForm((prev) => {
       const next = [...authorsList];
       next[idx] = { id: matchedId ?? next[idx]?.id ?? null, name: name };
@@ -390,11 +344,8 @@ const BookDetails = () => {
     }
   };
 
-  const handleUpdateMetadata = async () => {
-    if (!id || id === 'new') {
-      alert('Vui lòng tạo ấn phẩm trước.');
-      return;
-    }
+  const handleUpdate = async () => {
+    if (!id || id === 'new') return;
 
     if (!form.title.trim()) {
       alert('Tiêu đề không được để trống.');
@@ -402,49 +353,37 @@ const BookDetails = () => {
     }
 
     const payload = {
+      // metadata
       title: form.title.trim(),
-      isbn: form.isbn?.trim() || null,
       subtitle: form.subtitle?.trim() || null,
-      pages: '',
-      aiSummary: '',
-      fileUrl: '',
-      categories: [],
-      tags: [],
-      coverImageUrl: null,
-      totalItems: 0,
-      publisher: { id: null, name: '' },
-      authors: [{ id: null, name: '' }],
+      isbn: form.isbn?.trim() || null,
       description: form.description || null,
       language: form.language || null,
       numberOfPages: form.pages ? Number(form.pages) : null,
-      publicationYear: form.publicationYear
-        ? Number(form.publicationYear)
-        : null,
+      publicationYear: form.publicationYear ? Number(form.publicationYear) : null,
       edition: form.edition ? Number(form.edition) : null,
       size: form.size || null,
       weight: form.weight ? Number(form.weight) : null,
       aiTargetAudience: form.aiTargetAudience || null,
+      coverImageUrl: form.coverImageUrl || null,
+      // relations
+      publisherId: form.publisher.id ?? null,
+      authorIds: form.authors.filter(a => a.id).map(a => a.id),
+      categoryIds: form.categories.filter(c => c.id).map(c => c.id),
+      tagIds: form.tags.filter(t => t.id).map(t => t.id),
     };
 
     try {
       setSaving(true);
-
-      const res = await publicationsService.updateMetadata(
-        Number(id),
-        payload
-      );
-
+      const res = await publicationsService.updatePublication(id, payload);
       if (res.code === 200) {
-        alert('Cập nhật metadata thành công');
-
-        // 🔥 QUAN TRỌNG
-        setMetadataSnapshot(null);
-        setIsEditingMetadata(false);
+        alert('Cập nhật thành công');
+        window.location.reload();
       } else {
         alert(res.message || 'Cập nhật thất bại');
       }
     } catch (error) {
-      console.error('Lỗi update metadata', error);
+      console.error('Lỗi update', error);
       alert('Cập nhật thất bại');
     } finally {
       setSaving(false);
@@ -600,6 +539,11 @@ const BookDetails = () => {
                         size: form.size,
                         weight: form.weight,
                         aiTargetAudience: form.aiTargetAudience,
+                        // thêm relations vào snapshot
+                        publisher: form.publisher,
+                        authors: [...form.authors],
+                        categories: [...form.categories],
+                        tags: [...form.tags],
                       });
                     } else {
                       if (metadataSnapshot) setForm(prev => ({ ...prev, ...metadataSnapshot }));
@@ -796,6 +740,112 @@ const BookDetails = () => {
                   </p>
                 </div>
               )}
+
+              <hr className="border-slate-200 my-4" />
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Nhà xuất bản <span className="text-red-500">*</span>
+                  </label>
+                  <AsyncCreatableSelectField
+                    isDisabled={!isEditingMetadata}
+                    value={
+                      form.publisher?.id
+                        ? { value: form.publisher.id, label: form.publisher.name }
+                        : null
+                    }
+                    loadOptions={loadPublisherOptions}
+                    onCreate={createPublisherOption}
+                    onChange={(option: any) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        publisher: option
+                          ? {
+                            id: option.value ?? null,
+                            name: option.label ?? '',
+                          }
+                          : { id: null, name: '' },
+                      }));
+                    }}
+                    placeholder="Chọn hoặc nhập nhà xuất bản"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Tác giả <span className="text-red-500">*</span>
+                  </label>
+                  <AsyncCreatableSelectField
+                    isMulti
+                    isDisabled={!isEditingMetadata}
+                    value={form.authors.filter(a => a.id).map(a => ({
+                      value: a.id,
+                      label: a.name,
+                    }))}
+                    loadOptions={loadAuthorOptions}
+                    onCreate={createAuthorOption}
+                    onChange={(selected: any[]) => {
+                      const mapped = selected.map(s => ({
+                        id: typeof s.value === 'number' ? s.value : null,
+                        name: s.label,
+                      }));
+                      setForm(prev => ({ ...prev, authors: mapped }));
+                    }}
+                    placeholder="Chọn hoặc nhập tác giả"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Danh mục
+                  </label>
+                  <AsyncCreatableSelectField
+                    isMulti
+                    isDisabled={!isEditingMetadata}
+                    value={form.categories.filter(c => c.id).map(c => ({
+                      value: c.id,
+                      label: c.name,
+                    }))}
+                    loadOptions={loadCategoryOptions}
+                    onCreate={createCategoryOption}
+                    onChange={(selected: any[]) => {
+                      const mapped = selected.map(s => ({
+                        id: typeof s.value === 'number' ? s.value : null,
+                        name: s.label,
+                      }));
+                      setForm(prev => ({ ...prev, categories: mapped }));
+                    }}
+                    placeholder="Chọn hoặc nhập danh mục"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Tags
+                  </label>
+                  <AsyncCreatableSelectField
+                    isMulti
+                    isDisabled={!isEditingMetadata}
+                    value={form.tags.filter(t => t.id).map(t => ({
+                      value: t.id,
+                      label: t.name,
+                    }))}
+                    loadOptions={loadTagOptions}
+                    onCreate={createTagOption}
+                    onChange={(selected: any[]) => {
+                      const mapped = selected.map(s => ({
+                        id: typeof s.value === 'number' ? s.value : null,
+                        name: s.label,
+                      }));
+                      setForm(prev => ({ ...prev, tags: mapped }));
+                    }}
+                    placeholder="Chọn hoặc nhập tag"
+                  />
+                </div>
+              </div>
             </div>
 
             {isEditingMetadata && (
@@ -818,7 +868,14 @@ const BookDetails = () => {
                   )}
                   <button
                     className="px-6 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    onClick={isCreate ? handleCreate : handleUpdateMetadata}
+                    onClick={async () => {
+                      if (isCreate) {
+                        await handleCreate();
+                      } else {
+                        await handleUpdate();
+                        window.location.reload();
+                      }
+                    }}
                     disabled={saving}
                   >
                     <Save size={16} />
@@ -994,188 +1051,6 @@ const BookDetails = () => {
             </div>
           </div>
 
-
-          {/* Relationships & Classification Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-6">
-            <div className="bg-blue-600 px-6 py-3 border-b border-blue-700 flex justify-between items-center">
-              <div>
-                <h2 className="text-white font-semibold flex items-center gap-2">
-                  <Copy size={18} /> Phân loại & Liên kết
-                </h2>
-                <p className="text-blue-100 text-xs">
-                  Quản lý tác giả, nhà xuất bản, danh mục và thẻ phân loại
-                </p>
-              </div>
-
-              {!isCreate && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isEditingRelations) {
-                      setRelationsSnapshot({
-                        publisher: form.publisher,
-                        authors: [...form.authors],
-                        categories: [...form.categories],
-                        tags: [...form.tags],
-                      });
-                    } else {
-                      if (relationsSnapshot) setForm(prev => ({ ...prev, ...relationsSnapshot }));
-                    }
-                    setIsEditingRelations(!isEditingRelations);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${isEditingRelations
-                    ? 'bg-red-500 text-white hover:bg-red-600'
-                    : 'bg-white text-blue-600 hover:bg-slate-50'
-                    }`}
-                >
-                  {isEditingRelations ? (
-                    <>
-                      <X size={14} /> Hủy
-                    </>
-                  ) : (
-                    <>
-                      <Edit2 size={14} /> Chỉnh sửa
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-
-
-            <div className="p-6 space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  Nhà xuất bản <span className="text-red-500">*</span>
-                </label>
-                <AsyncCreatableSelectField
-                  isDisabled={!isEditingRelations}
-                  value={
-                    form.publisher
-                      ? { value: form.publisher.id, label: form.publisher.name }
-                      : null
-                  }
-                  loadOptions={loadPublisherOptions}
-                  onCreate={createPublisherOption}
-                  onChange={(option: any) => {
-                    setForm((prev) => ({
-                      ...prev,
-                      publisher: option
-                        ? {
-                          id: option.value ?? null,
-                          name: option.label ?? '',
-                        }
-                        : { id: null, name: '' },
-                    }));
-                  }}
-                  placeholder="Chọn hoặc nhập nhà xuất bản"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  Tác giả <span className="text-red-500">*</span>
-                </label>
-                <AsyncCreatableSelectField
-                  isMulti
-                  isDisabled={!isEditingRelations}
-                  value={form.authors.map(a => ({
-                    value: a.id,
-                    label: a.name,
-                  }))}
-                  loadOptions={loadAuthorOptions}
-                  onCreate={createAuthorOption}
-                  onChange={(selected: any[]) => {
-                    const mapped = selected.map(s => ({
-                      id: typeof s.value === 'number' ? s.value : null,
-                      name: s.label,
-                    }));
-
-                    setForm(prev => ({ ...prev, authors: mapped }));
-                  }}
-                  placeholder="Chọn hoặc nhập tác giả"
-                />
-              </div>
-
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Danh mục
-                </label>
-                <AsyncCreatableSelectField
-                  isMulti
-                  isDisabled={!isEditingRelations}
-                  value={form.categories.map(c => ({
-                    value: c.id,
-                    label: c.name,
-                  }))}
-                  loadOptions={loadCategoryOptions}
-                  onCreate={createCategoryOption}
-                  onChange={(selected: any[]) => {
-                    const mapped = selected.map(s => ({
-                      id: typeof s.value === 'number' ? s.value : null,
-                      name: s.label,
-                    }));
-
-                    setForm(prev => ({ ...prev, categories: mapped }));
-                  }}
-                  placeholder="Chọn hoặc nhập danh mục"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Tags
-                </label>
-                <AsyncCreatableSelectField
-                  isMulti
-                  isDisabled={!isEditingRelations}
-                  value={form.tags.map(t => ({
-                    value: t.id,
-                    label: t.name,
-                  }))}
-                  loadOptions={loadTagOptions}
-                  onCreate={createTagOption}
-                  onChange={(selected: any[]) => {
-                    const mapped = selected.map(s => ({
-                      id: typeof s.value === 'number' ? s.value : null,
-                      name: s.label,
-                    }));
-
-                    setForm(prev => ({ ...prev, tags: mapped }));
-                  }}
-                  placeholder="Chọn hoặc nhập tag"
-                />
-              </div>
-            </div>
-
-            {isEditingRelations && (
-              <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
-                <div className="text-xs text-slate-500">lưu thay đổi liên kết</div>
-
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (relationsSnapshot) setForm(prev => ({ ...prev, ...relationsSnapshot }));
-                      setIsEditingRelations(false);
-                    }}
-                    className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-100 flex items-center gap-2"
-                  >
-                    <X size={16} /> Hủy
-                  </button>
-
-                  <button
-                    onClick={handleUpdateRelations}
-                    disabled={savingRelations}
-                    className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
-                  >
-                    <Save size={16} />
-                    {savingRelations ? 'Đang lưu...' : 'Lưu liên kết'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Advanced Actions */}
           <div className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">

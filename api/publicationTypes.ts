@@ -6,96 +6,84 @@
 
 // Publisher interface
 export interface Publisher {
-  id: number;
+  id: string;
   publisherName: string;
   address: string;
-  createdAt: string | null;
-  updatedAt: string | null;
 }
 
 // Author interface
 export interface Author {
-  id: number;
+  id: string;
   authorName: string;
   biography: string;
   dateOfBirth: string;
   dateOfDeath: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
 }
 
 // Category interface
 export interface Category {
-  id: number;
+  id: string;
   categoryName?: string;
   name?: string;
-  parentCategoryId: number | null;
+  parentCategoryId: string | null;
   parentCategoryName?: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
 }
 
 // Tag interface
 export interface Tag {
-  id: number;
+  id: string;
   tagName: string;
-  createdAt: string | null;
-  updatedAt: string | null;
 }
 
 // Publication interface (Main entity)
 export interface Publication {
-  id: number;
+  id: string;
   isbn: string;
   title: string;
   subtitle: string | null;
   description: string | null;
   language: string;
   numberOfPages: number;
-  publisher: Publisher;
-  authors: Author[];
   publicationYear: number;
   edition: string | null;
   coverImageUrl: string | null;
   size: string | null;
   weight: number | null;
+  publisher: Publisher;
+  authors: Author[];
   categories: Category[];
   tags: Tag[];
   totalItems: number;
   availableItems: number;
 }
 
-export interface UpdatePublicationMetadataRequest {
-  title: string;
-  subtitle?: string | null;
-  description?: string | null;
-  language?: string | null;
-  numberOfPages?: number | null;
-  publicationYear?: number | null;
-  edition?: number | null;
-  size?: string | null;
-  weight?: number | null;
-  aiTargetAudience?: string | null;
-};
 
-export interface UpdatePublicationRelationsRequest {
-  publisherId: number | null;
-  authorIds: (number | null)[];
-  categoryIds: (number | null)[];
-  tagIds: (number | null)[];
+export interface UpdatePublicationRequest {
+  isbn: string;
+  title: string;
+  description: string | null;
+  language: string;
+  numberOfPages: number;
+  aiTargetAudience: string;
+  publicationYear: number;
+  edition: string | null;
+  size: string | null;
+  weight: number | null;
+  publisher: string;
+  authors: string[];
+  tags: string[];
+  categories: string[];
 }
 
 // Librarian Response
 export interface LibrarianPublicationResponse {
-  publicationId: number;
+  publicationId: string;
   title: string;
   subtitle: string | null;
   authorNames: string[];
   publicationYear: number;
   totalItems: number;
-  createdAt: string;
-  coverImageUrl?: string;
-  imageCoverUrl?: string; // Tên biến hỗ trợ trường hợp sai chính tả
+  imageCoverUrl: string;
 }
 
 // API Response wrapper
@@ -109,7 +97,7 @@ export interface ApiResponse<T> {
 // API Response wrapper cho Librarian Publication Detail
 export interface LibrarianPublicationDetailResponse {
   publication: {
-    id: number;
+    id: string;
     isbn: string;
     title: string;
     subtitle: string | null;
@@ -126,19 +114,19 @@ export interface LibrarianPublicationDetailResponse {
     weight: number;
   };
   publisher: {
-    id: number;
+    id: string;
     name: string;
   };
   authors: {
-    id: number;
+    id: string;
     name: string;
   }[];
   categories: {
-    id: number;
+    id: string;
     name: string;
   }[];
   tags: {
-    id: number;
+    id: string;
     name: string;
   }[];
   ratings: {

@@ -4,7 +4,7 @@ export interface UserProfileResponse {
   code: number;
   message: string;
   data: {
-    id: number;
+    id: string;
     email: string;
     fullName: string;
     dateOfBirth: string | null;
@@ -14,7 +14,7 @@ export interface UserProfileResponse {
     address: string | null;
     profilePictureUrl: string | null;
     roles: {
-      id: number;
+      id: string;
       roleName: string;
       description: string;
     }[];

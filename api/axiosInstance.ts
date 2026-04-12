@@ -5,20 +5,12 @@ import axios, {
   AxiosError,
 } from "axios";
 
-/**
- * Axios Instance Configuration
- *
- * File này cấu hình base Axios instance với:
- * - BaseURL từ environment variable
- * - Request interceptor: Tự động thêm token vào header
- * - Response interceptor: Tự động trả về data và xử lý lỗi
- */
 
-// Tạo Axios instance với cấu hình base
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
   timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 10000
 });
+
 
 /**
  * REQUEST INTERCEPTOR

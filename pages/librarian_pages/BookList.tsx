@@ -84,9 +84,9 @@ const BookList = () => {
             publisher: 'N/A',
             totalCopies: pub.totalItems,
             availableCopies: pub.totalItems, // Giả lập data đang mượn
-            createdAt: pub.createdAt,
+            createdAt: (pub as any).createdAt,
             category: 'N/A',
-            thumbnail: pub.imageCoverUrl || pub.coverImageUrl || '',
+            thumbnail: pub.imageCoverUrl || (pub as any).coverImageUrl || '',
           }));
 
           setBooks(mappedBooks);
@@ -222,10 +222,10 @@ const BookList = () => {
               ]}
               value={
                 selectedCategory === null
-                  ? { value: null, label: 'Tất cả chủ đề' }
-                  : categories.find(cat => cat.id === selectedCategory)
-                    ? { value: selectedCategory, label: categories.find(cat => cat.id === selectedCategory)?.name || categories.find(cat => cat.id === selectedCategory)?.categoryName || '' }
-                    : { value: null, label: 'Tất cả chủ đề' }
+                  ? { value: null as any, label: 'Tất cả chủ đề' }
+                  : categories.find(cat => cat.id === String(selectedCategory))
+                    ? { value: selectedCategory, label: categories.find(cat => cat.id === String(selectedCategory))?.name || categories.find(cat => cat.id === String(selectedCategory))?.categoryName || '' }
+                    : { value: null as any, label: 'Tất cả chủ đề' }
               }
               onChange={(option) => {
                 setSelectedCategory(option?.value ?? null);

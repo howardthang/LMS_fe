@@ -328,7 +328,7 @@ const BookDetails = () => {
 
       try {
         setIsUploadingCover(true);
-        const res = await publicationsService.updatePublicationCover(Number(id), file);
+        const res = await publicationsService.updatePublicationCover(id, file);
         if (res.code === 200 && res.data) {
           setForm(prev => ({ ...prev, coverImageUrl: res.data }));
           alert('Cập nhật trang bìa thành công!');
@@ -375,7 +375,7 @@ const BookDetails = () => {
 
     try {
       setSaving(true);
-      const res = await publicationsService.updatePublication(id, payload);
+      const res = await publicationsService.updatePublication(id, payload as any);
       if (res.code === 200) {
         alert('Cập nhật thành công');
         window.location.reload();
@@ -413,7 +413,7 @@ const BookDetails = () => {
 
     try {
       setSaving(true);
-      const res = await publicationsService.createPublication(payload);
+      const res = await publicationsService.createPublication(payload as any);
       if (res.code === 200 && res.data?.id) {
         navigate(`/librarian/books/${res.data.id}`);
       } else {
@@ -752,7 +752,7 @@ const BookDetails = () => {
                     isDisabled={!isEditingMetadata}
                     value={
                       form.publisher?.id
-                        ? { value: form.publisher.id, label: form.publisher.name }
+                        ? { value: String(form.publisher.id), label: form.publisher.name } as any
                         : null
                     }
                     loadOptions={loadPublisherOptions}
@@ -780,9 +780,9 @@ const BookDetails = () => {
                     isMulti
                     isDisabled={!isEditingMetadata}
                     value={form.authors.filter(a => a.id).map(a => ({
-                      value: a.id,
+                      value: String(a.id),
                       label: a.name,
-                    }))}
+                    })) as any}
                     loadOptions={loadAuthorOptions}
                     onCreate={createAuthorOption}
                     onChange={(selected: any[]) => {
@@ -806,9 +806,9 @@ const BookDetails = () => {
                     isMulti
                     isDisabled={!isEditingMetadata}
                     value={form.categories.filter(c => c.id).map(c => ({
-                      value: c.id,
+                      value: String(c.id),
                       label: c.name,
-                    }))}
+                    })) as any}
                     loadOptions={loadCategoryOptions}
                     onCreate={createCategoryOption}
                     onChange={(selected: any[]) => {
@@ -830,9 +830,9 @@ const BookDetails = () => {
                     isMulti
                     isDisabled={!isEditingMetadata}
                     value={form.tags.filter(t => t.id).map(t => ({
-                      value: t.id,
+                      value: String(t.id),
                       label: t.name,
-                    }))}
+                    })) as any}
                     loadOptions={loadTagOptions}
                     onCreate={createTagOption}
                     onChange={(selected: any[]) => {
@@ -1144,7 +1144,7 @@ const BookDetails = () => {
                     if (!confirmed) return;
                     try {
                       setSaving(true);
-                      await publicationsService.deletePublication(Number(id));
+                      await publicationsService.deletePublication(id as string);
                       alert('Đã xoá ấn phẩm.');
                       navigate('/librarian/books');
                     } catch (error) {

@@ -13,7 +13,7 @@ const BookList = () => {
   const [loading, setLoading] = useState(true);
 
   // State cho sorting
-  const [sortBy, setSortBy] = useState<string>('createAt');
+  const [sortBy, setSortBy] = useState<string>('createdAt');
   const [direction, setDirection] = useState<'ASC' | 'DESC'>('DESC');
 
   // State cho search & filters
@@ -137,7 +137,7 @@ const BookList = () => {
     setSelectedYear('');
     setAppliedYear(undefined);
     setHasItems(undefined);
-    setSortBy('createAt');
+    setSortBy('createdAt');
     setDirection('DESC');
     setCurrentPage(0);
   };
@@ -386,9 +386,9 @@ const BookList = () => {
               </th>
               <th
                 className="px-6 py-4 font-semibold cursor-pointer hover:text-slate-700 select-none"
-                onClick={() => handleSort('createAt')}
+                onClick={() => handleSort('createdAt')}
               >
-                Ngày tạo {sortBy === 'createAt' && (direction === 'DESC' ? '↓' : '↑')}
+                Ngày tạo {sortBy === 'createdAt' && (direction === 'DESC' ? '↓' : '↑')}
               </th>
               <th className="px-6 py-4 font-semibold text-right">Actions</th>
             </tr>

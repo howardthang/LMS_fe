@@ -21,23 +21,44 @@ import axiosInstance from '../../api/axiosInstance';
 // Đảm bảo đường dẫn này đúng với project của bạn
 import { Publication } from '@/api/publicationTypes';
 
+export interface Transaction {
+  transactionId: string;
+  userId: string;
+  fullName: string;
+  studentId: string;
+  fineAmount: number | null;
+  borrowedDate: string | null;
+  dueDate: string | null;
+  returnedDate: string | null;
+  status: string;
+}
+
+export interface TransactionsPage {
+  content: Transaction[];
+  currentPage: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface BookCopy {
   id: number;
   barcode: string;
-  status: 'AVAILABLE' | 'ON_LOAN' | 'LOST' | 'WITHDRAWN' | string;
-  itemType: string;
-  location: string;
-  price?: number;
+  status: 'AVAILABLE' | 'BORROWED' | 'RESERVED' | 'IN_MAINTENANCE' | 'LOST' | string;
+  condition: string;
+  shelf: string;
+  branch: string;
   acquiredDate?: string;
   publication: Publication;
 }
 
 type CopyForm = {
-  price: number | '';
-  libraryLocation: string; // dropdown demo
-  itemType: string;
+  branch: string; 
+  condition: string;
   status: string;
-  location: string; // vị trí kệ
+  shelf: string; 
   internalNote: string;
 };
 
@@ -51,13 +72,16 @@ const CopyDetails = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [copyData, setCopyData] = useState<BookCopy | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [transactionsData, setTransactionsData] = useState<TransactionsPage | null>(null);
+  const [transactionPage, setTransactionPage] = useState(0);
 
   const [form, setForm] = useState<CopyForm>({
-    price: '',
-    libraryLocation: 'Main Library - Campus A',
-    itemType: 'PAPERBACK',
+    branch: 'Cơ sở 1 - Dĩ An',
+    condition: 'NEW',
     status: 'AVAILABLE',
-    location: '',
+    shelf: '',
     internalNote: '',
   });
 
@@ -76,11 +100,10 @@ const CopyDetails = () => {
         setError(null);
         setLoading(false);
         setForm({
-          price: '',
-          libraryLocation: 'Main Library - Campus A',
-          itemType: 'PAPERBACK',
+          branch: 'Cơ sở 1 - Dĩ An',
+          condition: 'NEW',
           status: 'AVAILABLE',
-          location: '',
+          shelf: '',
           internalNote: '',
         });
         return;
@@ -90,35 +113,26 @@ const CopyDetails = () => {
         setLoading(true);
         setError(null);
 
-        const res = await axiosInstance.get(`/items/${id}`);
+        // Fetch actual item data from API
+        const res: any = await axiosInstance.get(`/items/${id}`);
+        const data = res?.data || res; // Extract the actual data payload
 
-        // Lấy data an toàn theo nhiều cấu trúc
-        let actualData: BookCopy | null = null;
-
-        if (res?.data?.data?.barcode) actualData = res.data.data;
-        else if (res?.data?.barcode) actualData = res.data;
-        else actualData = (res?.data?.data || res?.data || null) as BookCopy | null;
-
-        if (!actualData?.barcode) {
-          throw new Error('Invalid API response: missing barcode');
+        if (data) {
+          setCopyData(data);
+          setForm({
+            branch: data.branch || 'Cơ sở 1 - Dĩ An',
+            condition: data.condition || 'NEW',
+            status: data.status || 'AVAILABLE',
+            shelf: data.shelf || '',
+            internalNote: '',
+          });
         }
-
-        setCopyData(actualData);
-
-        // init form từ data
-        setForm({
-          price: typeof actualData.price === 'number' ? actualData.price : '',
-          libraryLocation: 'Main Library - Campus A',
-          itemType: actualData.itemType || 'PAPERBACK',
-          status: actualData.status || 'AVAILABLE',
-          location: actualData.location || '',
-          internalNote: '',
-        });
+        
+        setLoading(false);
       } catch (err) {
         console.error('Fetch item failed', err);
         setError('Không tải được thông tin bản sao.');
         setCopyData(null);
-      } finally {
         setLoading(false);
       }
     };
@@ -126,16 +140,37 @@ const CopyDetails = () => {
     fetchItem();
   }, [id]);
 
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!id || id === 'new') return;
+      try {
+        const transRes: any = await axiosInstance.get(`/transactions`, {
+          params: { itemId: id, page: transactionPage, size: 10 }
+        });
+        const data = transRes?.data || transRes;
+        if (data && typeof data === 'object') {
+          // ensure data matches the expected paging structure
+          setTransactionsData(data.content ? data : { content: data, currentPage: 0, pageSize: 10, totalElements: data.length, totalPages: 1, first: true, last: true });
+        }
+      } catch (e) {
+        console.error("Lỗi tải lịch sử mượn", e);
+      }
+    };
+    fetchHistory();
+  }, [id, transactionPage]);
+
   const getStatusLabel = (status?: string) => {
     switch (status) {
       case 'AVAILABLE':
         return 'Có sẵn';
-      case 'ON_LOAN':
+      case 'BORROWED':
         return 'Đang mượn';
       case 'LOST':
         return 'Mất';
-      case 'WITHDRAWN':
-        return 'Thu hồi';
+      case 'RESERVED':
+        return 'Đã đặt trước';
+      case 'IN_MAINTENANCE':
+        return 'Đang bảo trì';
       default:
         return status || 'N/A';
     }
@@ -147,10 +182,12 @@ const CopyDetails = () => {
         return 'bg-green-100 text-green-700 border-green-200';
       case 'LOST':
         return 'bg-red-100 text-red-700 border-red-200';
-      case 'ON_LOAN':
+      case 'BORROWED':
         return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'WITHDRAWN':
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'RESERVED':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'IN_MAINTENANCE':
+        return 'bg-purple-100 text-purple-700 border-purple-200';
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200';
     }
@@ -186,26 +223,24 @@ const CopyDetails = () => {
       setError(null);
 
       const payload = {
-        price: form.price === '' ? null : Number(form.price),
-        itemType: form.itemType,
+        condition: form.condition,
         status: form.status,
-        location: form.location,
-        // libraryLocation + internalNote: demo UI, chỉ gửi nếu backend có field tương ứng
-        // libraryLocation: form.libraryLocation,
-        // internalNote: form.internalNote,
+        shelf: form.shelf,
+        branch: form.branch,
       };
 
       await axiosInstance.put(`/items/${copyData.id}`, payload);
+      setIsEditing(false);
 
       // update local state (optimistic refresh)
       setCopyData((prev) =>
         prev
           ? ({
               ...prev,
-              price: payload.price ?? undefined,
-              itemType: payload.itemType,
+              condition: payload.condition,
               status: payload.status,
-              location: payload.location,
+              shelf: payload.shelf,
+              branch: payload.branch,
             } as BookCopy)
           : prev
       );
@@ -245,10 +280,10 @@ const CopyDetails = () => {
       const payload = {
         publicationId: publication?.id,
         // barcode bắt buộc unique -> backend tự sinh hoặc user nhập
-        itemType: form.itemType,
+        condition: form.condition,
         status: 'AVAILABLE',
-        location: form.location,
-        price: form.price === '' ? null : Number(form.price),
+        shelf: form.shelf,
+        branch: form.branch,
       };
 
       const res = await axiosInstance.post(`/items`, payload);
@@ -307,7 +342,7 @@ const CopyDetails = () => {
 
                 <button
                   onClick={handleSave}
-                  disabled={saving}
+                  disabled={saving || !isEditing}
                   className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm disabled:opacity-60"
                 >
                   <Save size={18} /> {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
@@ -323,11 +358,31 @@ const CopyDetails = () => {
             <div className="lg:col-span-2 space-y-8">
               {/* 1. Copy Info Form */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                    <FileText size={20} />
+                <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100 justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                      <FileText size={20} />
+                    </div>
+                    <h2 className="font-bold text-lg text-slate-800">Thông tin bản sao</h2>
                   </div>
-                  <h2 className="font-bold text-lg text-slate-800">Thông tin bản sao</h2>
+                  
+                  {!isEditing ? (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded flex items-center gap-2"
+                    >
+                      <PenTool size={14} /> Chỉnh sửa
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setIsEditing(false);
+                      }}
+                      className="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded flex items-center gap-2"
+                    >
+                      Hủy
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 mb-6">
@@ -338,47 +393,36 @@ const CopyDetails = () => {
                     <input
                       type="text"
                       value={copyData.barcode}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono bg-slate-50"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono bg-slate-50 text-slate-500 cursor-not-allowed"
                       readOnly
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Giá (VND)</label>
-                    <input
-                      type="number"
-                      value={form.price}
-                      onChange={(e) => onChange('price', e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="0"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Vị trí thư viện <span className="text-red-500">*</span>
+                      Vị trí thư viện (Cơ sở) <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={form.libraryLocation}
-                      onChange={(e) => onChange('libraryLocation', e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      value={form.branch}
+                      onChange={(e) => onChange('branch', e.target.value)}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                     >
-                      <option>Main Library - Campus A</option>
-                      <option>Branch Library - Campus B</option>
+                      <option value="Cơ sở 1 - Dĩ An">Cơ sở 1 - Dĩ An</option>
+                      <option value="Cơ sở 2 - Lý Thường Kiệt">Cơ sở 2 - Lý Thường Kiệt</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Loại bản sao</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Tình trạng</label>
                     <select
-                      value={form.itemType}
-                      onChange={(e) => onChange('itemType', e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      value={form.condition}
+                      onChange={(e) => onChange('condition', e.target.value)}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                     >
-                      <option value="PAPERBACK">Sách bìa mềm</option>
-                      <option value="HARDCOVER">Sách bìa cứng</option>
-                      <option value="MAGAZINE">Tạp chí</option>
-                      <option value="DVD">DVD/CD</option>
+                      <option value="NEW">Mới</option>
+                      <option value="OLD">Cũ</option>
                     </select>
                   </div>
 
@@ -389,12 +433,14 @@ const CopyDetails = () => {
                     <select
                       value={form.status}
                       onChange={(e) => onChange('status', e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                     >
                       <option value="AVAILABLE">Có sẵn</option>
-                      <option value="ON_LOAN">Đang mượn</option>
+                      <option value="BORROWED">Đang mượn</option>
+                      <option value="RESERVED">Đã đặt trước</option>
+                      <option value="IN_MAINTENANCE">Đang bảo trì</option>
                       <option value="LOST">Mất</option>
-                      <option value="WITHDRAWN">Thu hồi</option>
                     </select>
                   </div>
 
@@ -402,9 +448,10 @@ const CopyDetails = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Vị trí kệ sách</label>
                     <input
                       type="text"
-                      value={form.location}
-                      onChange={(e) => onChange('location', e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                      value={form.shelf}
+                      onChange={(e) => onChange('shelf', e.target.value)}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                     />
                   </div>
                 </div>
@@ -414,8 +461,9 @@ const CopyDetails = () => {
                   <textarea
                     value={form.internalNote}
                     onChange={(e) => onChange('internalNote', e.target.value)}
+                    disabled={!isEditing}
                     placeholder="Thêm ghi chú nội bộ cho bản sao này..."
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-none disabled:bg-slate-50 disabled:text-slate-500"
                   />
                 </div>
               </div>
@@ -440,16 +488,16 @@ const CopyDetails = () => {
 
                 <div className="flex gap-6">
                   <div className="w-24 h-36 bg-slate-200 rounded-lg shrink-0 overflow-hidden shadow-sm">
-                    {(publication as any)?.coverImageUrl ? (
+                    {((publication as any)?.publication?.coverImageUrl || (publication as any)?.coverImageUrl) ? (
                       <img
-                        src={(publication as any).coverImageUrl}
-                        alt={(publication as any).title}
+                        src={(publication as any)?.publication?.coverImageUrl || (publication as any)?.coverImageUrl}
+                        alt={(publication as any)?.publication?.title || (publication as any)?.title}
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center p-2 text-center">
                         <span className="text-white font-bold text-xs uppercase tracking-widest opacity-80">
-                          {(publication as any)?.title?.substring(0, 15) || 'NO COVER'}
+                          {((publication as any)?.publication?.title || (publication as any)?.title || 'NO COVER').substring(0, 15)}
                         </span>
                       </div>
                     )}
@@ -458,18 +506,20 @@ const CopyDetails = () => {
                   <div className="flex-1 space-y-3">
                     <div>
                       <h3 className="text-xl font-bold text-slate-900 leading-tight">
-                        {(publication as any)?.title}
+                        {(publication as any)?.publication?.title || (publication as any)?.title}
                       </h3>
 
-                      {(publication as any)?.subtitle && (
-                        <p className="text-slate-500 text-sm italic">{(publication as any).subtitle}</p>
+                      {((publication as any)?.publication?.subtitle || (publication as any)?.subtitle) && (
+                        <p className="text-slate-500 text-sm italic">
+                          {(publication as any)?.publication?.subtitle || (publication as any)?.subtitle}
+                        </p>
                       )}
 
                       <div className="mt-1">
                         {Array.isArray((publication as any)?.authors) &&
                           (publication as any).authors.map((author: any, index: number) => (
                             <span key={author?.id ?? index} className="text-slate-600 font-medium">
-                              {author?.authorName ?? author?.name ?? 'Unknown'}
+                              {author?.name ?? author?.authorName ?? 'Unknown'}
                               {index < (publication as any).authors.length - 1 ? ', ' : ''}
                             </span>
                           ))}
@@ -478,38 +528,39 @@ const CopyDetails = () => {
                       <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
                         <span className="flex items-center gap-1 font-semibold">
                           <ExternalLink size={12} />{' '}
-                          {(publication as any)?.publisher?.publisherName ??
+                          {(publication as any)?.publisher?.name ??
+                            (publication as any)?.publisher?.publisherName ??
                             (publication as any)?.publisherName ??
                             'N/A'}
                         </span>
                         <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                        <span>{(publication as any)?.publicationYear ?? 'N/A'}</span>
+                        <span>{(publication as any)?.publication?.publicationYear ?? (publication as any)?.publicationYear ?? 'N/A'}</span>
                         <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                        <span>{(publication as any)?.language ?? 'N/A'}</span>
+                        <span>{(publication as any)?.publication?.language ?? (publication as any)?.language ?? 'N/A'}</span>
                       </p>
                     </div>
 
                     <div className="grid grid-cols-4 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400">ISBN</p>
-                        <p className="text-sm font-semibold text-slate-800">{(publication as any)?.isbn ?? 'N/A'}</p>
+                        <p className="text-sm font-semibold text-slate-800">{(publication as any)?.publication?.isbn ?? (publication as any)?.isbn ?? 'N/A'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400">Tái bản</p>
                         <p className="text-sm font-semibold text-slate-800">
-                          {(publication as any)?.edition ?? 'N/A'}
+                          {(publication as any)?.publication?.edition ?? (publication as any)?.edition ?? 'N/A'}
                         </p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400">Số trang</p>
                         <p className="text-sm font-semibold text-slate-800">
-                          {(publication as any)?.numberOfPages ?? 'N/A'}
+                          {(publication as any)?.publication?.numberOfPages ?? (publication as any)?.numberOfPages ?? 'N/A'}
                         </p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400">Tổng bản sao</p>
                         <p className="text-sm font-semibold text-slate-800">
-                          {(publication as any)?.totalItems ?? 'N/A'}
+                          {(publication as any)?.items?.totalItems ?? (publication as any)?.totalItems ?? 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -521,7 +572,7 @@ const CopyDetails = () => {
                             key={tag?.id ?? idx}
                             className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-full font-medium"
                           >
-                            {tag?.tagName ?? tag?.name ?? 'Tag'}
+                            {tag?.name ?? tag?.tagName ?? 'Tag'}
                           </span>
                         ))}
 
@@ -531,19 +582,19 @@ const CopyDetails = () => {
                             key={cat?.id ?? idx}
                             className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full border border-blue-100 font-medium"
                           >
-                            {cat?.categoryName ?? cat?.name ?? 'Category'}
+                            {cat?.name ?? cat?.categoryName ?? 'Category'}
                           </span>
                         ))}
                     </div>
 
                     <p className="text-sm text-slate-600 leading-relaxed text-justify line-clamp-3">
-                      {(publication as any)?.description || 'Chưa có mô tả cho ấn phẩm này.'}
+                      {(publication as any)?.publication?.description ?? (publication as any)?.description ?? 'Chưa có mô tả cho ấn phẩm này.'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Borrowing History (MOCK) */}
+              {/* 3. Borrowing History */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                   <div className="flex items-center gap-2">
@@ -551,106 +602,109 @@ const CopyDetails = () => {
                     <h2 className="font-bold text-lg text-slate-800">Lịch sử mượn</h2>
                   </div>
                   <div className="flex gap-2">
-                    <select className="text-sm border border-slate-200 rounded px-2 py-1 bg-white outline-none">
-                      <option>Tất cả thời gian</option>
-                    </select>
                     <button className="px-3 py-1 border border-slate-200 rounded text-sm hover:bg-slate-50 flex items-center gap-1">
-                      <Printer size={14} /> Export
+                      <Printer size={14} /> Tải xuống
                     </button>
                   </div>
                 </div>
 
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                      <th className="px-4 py-3 font-semibold">Loan ID</th>
-                      <th className="px-4 py-3 font-semibold">Người mượn</th>
-                      <th className="px-4 py-3 font-semibold">Ngày mượn</th>
-                      <th className="px-4 py-3 font-semibold">Hạn trả</th>
-                      <th className="px-4 py-3 font-semibold">Ngày trả</th>
-                      <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                      <th className="px-4 py-3 font-semibold">Phí</th>
-                      <th className="px-4 py-3 font-semibold text-right"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {[
-                      {
-                        id: 'LN-2024-0892',
-                        user: 'Phạm Minh Tuấn',
-                        mssv: 'SV2021-1523',
-                        borrow: 'Nov 15, 2024',
-                        due: 'Dec 15, 2024',
-                        return: 'Dec 5, 2024',
-                        status: 'đã trả',
-                        fee: 0,
-                        overdue: false,
-                      },
-                      {
-                        id: 'LN-2024-0756',
-                        user: 'Lê Thị Hương',
-                        mssv: 'SV2021-0892',
-                        borrow: 'Oct 20, 2024',
-                        due: 'Nov 20, 2024',
-                        return: 'Nov 25, 2024',
-                        status: 'quá thời hạn',
-                        fee: 25000,
-                        overdue: true,
-                      },
-                    ].map((row, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 font-mono text-slate-600 text-xs">{row.id}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                              {row.user.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="font-medium text-slate-900">{row.user}</div>
-                              <div className="text-[10px] text-slate-500">{row.mssv}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-slate-600">{row.borrow}</td>
-                        <td className="px-4 py-3 text-slate-600">{row.due}</td>
-                        <td className="px-4 py-3 text-slate-600">{row.return}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                              row.overdue ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'
-                            }`}
-                          >
-                            {row.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-600">
-                          {row.fee > 0 ? `${row.fee.toLocaleString()} VND` : '0 VND'}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button className="text-blue-600 hover:text-blue-800">
-                            <ExternalLink size={14} />
-                          </button>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                        <th className="px-4 py-3 font-semibold">T/A ID</th>
+                        <th className="px-4 py-3 font-semibold">Người mượn</th>
+                        <th className="px-4 py-3 font-semibold">Ngày mượn</th>
+                        <th className="px-4 py-3 font-semibold">Hạn trả</th>
+                        <th className="px-4 py-3 font-semibold">Ngày trả</th>
+                        <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                        <th className="px-4 py-3 font-semibold">Phí</th>
+                        <th className="px-4 py-3 font-semibold text-right"></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {transactionsData && transactionsData.content && transactionsData.content.length > 0 ? (
+                        transactionsData.content.map((row) => {
+                          const isOverdue = row.status === 'OVERDUE';
+                          const statusClass = 
+                            row.status === 'RETURNED' ? 'bg-green-100 text-green-700' :
+                            row.status === 'BORROWING' ? 'bg-blue-100 text-blue-700' :
+                            row.status === 'WAITING_FOR_PICKUP' ? 'bg-amber-100 text-amber-700' :
+                            isOverdue ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-700';
 
-                <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50">
-                  <span className="text-xs text-slate-500">Hiển thị 2 trong tổng số 47 lượt mượn</span>
-                  <div className="flex gap-1">
-                    <button className="w-6 h-6 flex items-center justify-center border rounded bg-white text-slate-600 text-xs hover:bg-slate-100">
-                      1
-                    </button>
-                    <button className="w-6 h-6 flex items-center justify-center border rounded bg-white text-slate-600 text-xs hover:bg-slate-100">
-                      2
-                    </button>
-                    <span className="text-xs text-slate-400 px-1">...</span>
-                    <button className="w-6 h-6 flex items-center justify-center border rounded bg-white text-slate-600 text-xs hover:bg-slate-100">
-                      10
-                    </button>
-                  </div>
+                          return (
+                            <tr key={row.transactionId} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 font-mono text-slate-600 text-xs">{row.transactionId}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                    {(row.fullName || 'U').charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-slate-900">{row.fullName}</div>
+                                    <div className="text-[10px] text-slate-500">{row.studentId}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {row.borrowedDate ? new Date(row.borrowedDate).toLocaleDateString('vi-VN') : '-'}
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {row.dueDate ? new Date(row.dueDate).toLocaleDateString('vi-VN') : '-'}
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {row.returnedDate ? new Date(row.returnedDate).toLocaleDateString('vi-VN') : '-'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusClass}`}>
+                                  {row.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {row.fineAmount && row.fineAmount > 0 ? `${row.fineAmount.toLocaleString()} VND` : '-'}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button className="text-blue-600 hover:text-blue-800">
+                                  <ExternalLink size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                            Chưa có lịch sử mượn
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
+
+                {transactionsData && transactionsData.totalPages > 0 && (
+                  <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50">
+                    <span className="text-xs text-slate-500">
+                      Trang {transactionsData.currentPage + 1} / {transactionsData.totalPages} (Tổng {transactionsData.totalElements} lượt)
+                    </span>
+                    <div className="flex gap-1">
+                      <button 
+                        disabled={transactionsData.first}
+                        onClick={() => setTransactionPage(p => Math.max(0, p - 1))}
+                        className={`w-16 h-7 flex items-center justify-center border rounded text-xs ${transactionsData.first ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Trước
+                      </button>
+                      <button 
+                        disabled={transactionsData.last}
+                        onClick={() => setTransactionPage(p => p + 1)}
+                        className={`w-16 h-7 flex items-center justify-center border rounded text-xs ${transactionsData.last ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Tiếp
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 4. Analytics (MOCK) */}
@@ -861,7 +915,7 @@ const CopyDetails = () => {
                     </div>
                     <div>
                       <p className="text-xs text-slate-500 uppercase">Tổng số lượt mượn</p>
-                      <p className="text-xl font-bold text-slate-900">47</p>
+                      <p className="text-xl font-bold text-slate-900">{transactionsData.totalElements}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">

@@ -76,7 +76,7 @@ const BookList = () => {
         if (response.code === 200 && response.data) {
           // Map từ LibrarianPublicationResponse sang dạng hiển thị trên UI
           const mappedBooks: Book[] = response.data.content.map((pub: LibrarianPublicationResponse) => ({
-            id: pub.publicationId.toString(),
+            id: pub.publicationId,
             title: pub.subtitle ? `${pub.title}: ${pub.subtitle}` : pub.title,
             author: pub.authorNames?.join(', ') || 'N/A',
             isbn: 'N/A',
@@ -429,7 +429,7 @@ const BookList = () => {
                             'bg-orange-500',
                             'bg-pink-500',
                             'bg-cyan-500',
-                          ][parseInt(book.id || '0') % 5] : ''
+                          ][book.id] : ''
                         }`}
                       >
                         {book.thumbnail && (

@@ -56,7 +56,9 @@ const publicationsService = {
   },
 
   createAuthor: async (name: string) => {
-    return axiosInstance.post('/authors', { name });
+    return axiosInstance.post('/authors', name, {
+      headers: { 'Content-Type': 'text/plain' }
+    });
   },
 
   // ===== CATEGORY =====
@@ -65,7 +67,9 @@ const publicationsService = {
   },
 
   createCategory: async (name: string) => {
-    return axiosInstance.post('/categories', { name });
+    return axiosInstance.post('/categories', name, {
+      headers: { 'Content-Type': 'text/plain' }
+    });
   },
 
   // ===== TAG =====
@@ -74,7 +78,9 @@ const publicationsService = {
   },
 
   createTag: async (name: string) => {
-    return axiosInstance.post('/tags', { name });
+    return axiosInstance.post('/tags', name, {
+      headers: { 'Content-Type': 'text/plain' }
+    });
   },
 
   // ===== PUBLISHER =====
@@ -83,7 +89,9 @@ const publicationsService = {
   },
 
   createPublisher: async (name: string) => {
-    return axiosInstance.post('/publishers', { name });
+    return axiosInstance.post('/publishers', name, {
+      headers: { 'Content-Type': 'text/plain' }
+    });
   },
 
   updatePublication: async (

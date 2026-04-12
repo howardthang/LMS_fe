@@ -752,7 +752,7 @@ const BookDetails = () => {
                     isDisabled={!isEditingMetadata}
                     value={
                       form.publisher?.id
-                        ? { value: String(form.publisher.id), label: form.publisher.name } as any
+                        ? { value: form.publisher.id, label: form.publisher.name } as any
                         : null
                     }
                     loadOptions={loadPublisherOptions}
@@ -780,14 +780,14 @@ const BookDetails = () => {
                     isMulti
                     isDisabled={!isEditingMetadata}
                     value={form.authors.filter(a => a.id).map(a => ({
-                      value: String(a.id),
+                      value: a.id,
                       label: a.name,
                     })) as any}
                     loadOptions={loadAuthorOptions}
                     onCreate={createAuthorOption}
                     onChange={(selected: any[]) => {
                       const mapped = selected.map(s => ({
-                        id: typeof s.value === 'number' ? s.value : null,
+                        id: s.value !== undefined ? s.value : null,
                         name: s.label,
                       }));
                       setForm(prev => ({ ...prev, authors: mapped }));
@@ -806,14 +806,14 @@ const BookDetails = () => {
                     isMulti
                     isDisabled={!isEditingMetadata}
                     value={form.categories.filter(c => c.id).map(c => ({
-                      value: String(c.id),
+                      value: c.id,
                       label: c.name,
                     })) as any}
                     loadOptions={loadCategoryOptions}
                     onCreate={createCategoryOption}
                     onChange={(selected: any[]) => {
                       const mapped = selected.map(s => ({
-                        id: typeof s.value === 'number' ? s.value : null,
+                        id: s.value !== undefined ? s.value : null,
                         name: s.label,
                       }));
                       setForm(prev => ({ ...prev, categories: mapped }));
@@ -830,14 +830,14 @@ const BookDetails = () => {
                     isMulti
                     isDisabled={!isEditingMetadata}
                     value={form.tags.filter(t => t.id).map(t => ({
-                      value: String(t.id),
+                      value: t.id,
                       label: t.name,
                     })) as any}
                     loadOptions={loadTagOptions}
                     onCreate={createTagOption}
                     onChange={(selected: any[]) => {
                       const mapped = selected.map(s => ({
-                        id: typeof s.value === 'number' ? s.value : null,
+                        id: s.value !== undefined ? s.value : null,
                         name: s.label,
                       }));
                       setForm(prev => ({ ...prev, tags: mapped }));

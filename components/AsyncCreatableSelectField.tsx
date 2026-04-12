@@ -3,7 +3,7 @@ import debounce from 'lodash/debounce';
 import { useMemo, useEffect } from 'react';
 
 type Option = {
-    value: number | null;
+    value: number | string | null;
     label: string;
 };
 

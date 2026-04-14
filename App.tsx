@@ -127,12 +127,12 @@ const AppContent = () => {
   };
 
   if (legacyRedirects[location.pathname]) {
-    return <Navigate to={legacyRedirects[location.pathname]} replace />;
+    return <Navigate to={legacyRedirects[location.pathname]} replace state={location.state} />;
   }
 
   // Handle dynamic nested routes (e.g., /librarian/books/1)
   if (location.pathname.startsWith('/librarian/')) {
-    return <Navigate to={location.pathname.replace('/librarian/', `${LIB_PREFIX}/`)} replace />;
+    return <Navigate to={location.pathname.replace('/librarian/', `${LIB_PREFIX}/`)} replace state={location.state} />;
   }
 
   const isAuthPage =

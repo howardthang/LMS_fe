@@ -86,6 +86,23 @@ export interface LibrarianPublicationResponse {
   imageCoverUrl: string;
 }
 
+// Newest Publication Response
+export interface NewestPublication {
+  publicationId: string;
+  title: string;
+  coverImageUrl: string | null;
+  publicationYear: number;
+  createdAt: string;
+  availableItems: number;
+  authorNames: string[];
+  ratingAverage: number;
+  ratingCount: number;
+}
+
+export interface MostBorrowedPublication extends NewestPublication {
+  borrowCount: number;
+}
+
 // API Response wrapper
 export interface ApiResponse<T> {
   code: number;
@@ -95,7 +112,7 @@ export interface ApiResponse<T> {
 
 // Paginated response for publications (Librarian payload)
 // API Response wrapper cho Librarian Publication Detail
-export interface LibrarianPublicationDetailResponse {
+export interface PublicationDetailResponse {
   publication: {
     id: string;
     isbn: string;

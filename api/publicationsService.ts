@@ -2,12 +2,22 @@ import axiosInstance from './axiosInstance';
 import {
   ApiResponse,
   GetPublicationsParams,
-  LibrarianPublicationDetailResponse,
+  PublicationDetailResponse,
+  MostBorrowedPublication,
+  NewestPublication,
   PaginatedPublications,
   Publication
 } from './publicationTypes';
 
 const publicationsService = {
+
+  getMostBorrowedPublications: async (limit: number = 10): Promise<ApiResponse<MostBorrowedPublication[]>> => {
+    return axiosInstance.get(`/publications/most-borrowed?limit=${limit}`);
+  },
+
+  getNewestPublications: async (limit: number = 10): Promise<ApiResponse<NewestPublication[]>> => {
+    return axiosInstance.get(`/publications/newest?limit=${limit}`);
+  },
 
   getAllPublications: async (
     params?: GetPublicationsParams
@@ -112,11 +122,11 @@ const publicationsService = {
     return axiosInstance.put(`/publications/${id}/file`, formData);
   },
 
- 
-  getLibrarianPublicationById: async (
+
+  getPublicationById: async (
     id: string
-  ): Promise<ApiResponse<LibrarianPublicationDetailResponse>> => {
-    return axiosInstance.get(`/publications/librarian/${id}`);
+  ): Promise<ApiResponse<PublicationDetailResponse>> => {
+    return axiosInstance.get(`/publications/${id}`);
   },
 
   createPublication: async (

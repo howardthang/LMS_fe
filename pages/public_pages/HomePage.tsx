@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   ArrowRight,
   BarChart,
@@ -15,6 +16,8 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, StarRating } from '../../components/ui';
+import publicationsService from '../../api/publicationsService';
+import { MostBorrowedPublication, NewestPublication } from '../../api/publicationTypes';
 
 const HeroSection = () => {
   return (
@@ -187,6 +190,7 @@ const SectionHeader = ({
 );
 
 const BookCard = ({
+  id,
   title,
   author,
   rating,
@@ -225,16 +229,17 @@ const BookCard = ({
     </div>
     <div className="p-4 flex flex-col flex-grow">
       <h3 className="font-bold text-gray-900 line-clamp-2 text-base mb-1 leading-snug group-hover:text-blue-600 transition-colors">
-        <Link to="/publicpage/book/1">{title}</Link>
+        <Link to={`/publicpage/book/${id || 1}`}>{title}</Link>
       </h3>
       <p className="text-xs text-gray-500 mb-3 truncate">{author}</p>
 
-      <div className="mt-auto pt-3 border-t border-gray-50 flex items-center justify-between">
-        <div className="flex items-center">
+      <div className="mt-auto pt-3 border-t border-gray-50">
+        <div className="flex items-center mb-4">
           <StarRating rating={rating} size={14} />
           <span className="text-[10px] text-gray-400 ml-1">({reviews})</span>
         </div>
-        <Link to="/publicpage/book/1">
+      </div>
+        <Link to={`/publicpage/book/${id || 1}`}>
           <Button
             size="sm"
             variant="ghost"
@@ -243,7 +248,6 @@ const BookCard = ({
             Xem chi tiết
           </Button>
         </Link>
-      </div>
     </div>
   </div>
 );
@@ -266,6 +270,7 @@ const CategoryItem = ({ icon, title, desc, count, color }: any) => (
 );
 
 const TrendingItem = ({
+  id,
   rank,
   title,
   author,
@@ -273,12 +278,13 @@ const TrendingItem = ({
   available,
   rating,
   category,
+  image,
 }: any) => (
   <div className="flex items-start bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
     <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-purple-500"></div>
     <div className="mr-4 relative">
       <img
-        src={`https://picsum.photos/100/150?random=${rank}`}
+        src={image || `https://picsum.photos/100/150?random=${rank}`}
         alt={title}
         className="w-20 h-28 object-cover rounded shadow-sm"
       />
@@ -293,7 +299,7 @@ const TrendingItem = ({
         </Badge>
       </div>
       <h3 className="font-bold text-gray-900 text-sm mb-1 truncate pr-2 group-hover:text-blue-600">
-        <Link to="/publicpage/book/1">{title}</Link>
+        <Link to={`/publicpage/book/${id || 1}`}>{title}</Link>
       </h3>
       <p className="text-xs text-gray-500 mb-2">{author}</p>
       <div className="flex items-center space-x-3 text-xs text-gray-500 mb-2">
@@ -309,7 +315,7 @@ const TrendingItem = ({
     </div>
     <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
       <Link
-        to="/publicpage/book/1"
+        to={`/publicpage/book/${id || 1}`}
         className="text-xs font-bold text-blue-600 hover:underline"
       >
         Xem chi tiết
@@ -375,6 +381,44 @@ const TestimonialCard = ({ quote, name, role, avatar }: any) => (
 );
 
 const HomePage = () => {
+  const [newestPublications, setNewestPublications] = useState<NewestPublication[]>([]);
+  const [loadingNewest, setLoadingNewest] = useState(true);
+
+  const [mostBorrowedPublications, setMostBorrowedPublications] = useState<MostBorrowedPublication[]>([]);
+  const [loadingMostBorrowed, setLoadingMostBorrowed] = useState(true);
+
+  useEffect(() => {
+    const fetchNewest = async () => {
+      try {
+        const response = await publicationsService.getNewestPublications(4);
+        if (response && response.code === 200) {
+          setNewestPublications(response.data || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch newest publications", error);
+      } finally {
+        setLoadingNewest(false);
+      }
+    };
+
+    const fetchMostBorrowed = async () => {
+      try {
+        setLoadingMostBorrowed(true);
+        const response = await publicationsService.getMostBorrowedPublications(4);
+        if (response && response.code === 200) {
+          setMostBorrowedPublications(response.data || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch most borrowed publications", error);
+      } finally {
+        setLoadingMostBorrowed(false);
+      }
+    };
+
+    fetchNewest();
+    fetchMostBorrowed();
+  }, []);
+
   return (
     <div className="bg-white">
       <HeroSection />
@@ -555,46 +599,26 @@ const HomePage = () => {
               linkUrl="/publicpage/search?sort=newest"
             />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <BookCard
-                title="Blockchain và Cryptocurrency"
-                author="Trần Văn I"
-                rating={4.5}
-                reviews={12}
-                available={5}
-                image="books/blockchain-and-crypto.jpeg"
-                tag="MỚI"
-                color="green"
-              />
-              <BookCard
-                title="Quantum Computing căn bản"
-                author="Lê Thị K"
-                rating={5.0}
-                reviews={3}
-                available={3}
-                image="books/quantum-computing.jpg"
-                tag="MỚI"
-                color="green"
-              />
-              <BookCard
-                title="An ninh mạng và Bảo mật"
-                author="Phạm Minh L"
-                rating={4.2}
-                reviews={8}
-                available={4}
-                image="https://m.media-amazon.com/images/I/71f743sOPoL._AC_UF1000,1000_QL80_.jpg"
-                tag="MỚI"
-                color="green"
-              />
-              <BookCard
-                title="Cloud Computing với AWS"
-                author="Hoàng Văn M"
-                rating={4.6}
-                reviews={24}
-                available={6}
-                image="books/cloud-computing.jpeg"
-                tag="MỚI"
-                color="green"
-              />
+              {loadingNewest ? (
+                <div className="col-span-full py-10 text-center">Đang tải sách mới...</div>
+              ) : newestPublications.length > 0 ? (
+                newestPublications.slice(0, 4).map(pub => (
+                  <BookCard
+                    key={pub.publicationId}
+                    id={pub.publicationId}
+                    title={pub.title}
+                    author={pub.authorNames.join(', ')}
+                    rating={pub.ratingAverage}
+                    reviews={pub.ratingCount}
+                    available={pub.availableItems}
+                    image={pub.coverImageUrl || `https://picsum.photos/300/450?random=${pub.publicationId}`}
+                    tag="MỚI"
+                    color="green"
+                  />
+                ))
+              ) : (
+                <div className="col-span-full py-10 text-center text-gray-500">Không có sách mới nào.</div>
+              )}
             </div>
           </div>
 
@@ -607,42 +631,26 @@ const HomePage = () => {
               linkUrl="/publicpage/search?sort=popular"
             />
             <div className="space-y-4">
-              <TrendingItem
-                rank={1}
-                title="Artificial Intelligence: A Modern Approach"
-                author="Stuart Russell"
-                loans={456}
-                available={2}
-                rating={4.8}
-                category="AI/ML"
-              />
-              <TrendingItem
-                rank={2}
-                title="Python Crash Course"
-                author="Eric Matthes"
-                loans={389}
-                available={5}
-                rating={4.7}
-                category="Programming"
-              />
-              <TrendingItem
-                rank={3}
-                title="Hands-On Machine Learning"
-                author="Aurélien Géron"
-                loans={312}
-                available={1}
-                rating={4.9}
-                category="Data Science"
-              />
-              <TrendingItem
-                rank={4}
-                title="Full Stack Web Development"
-                author="Jonas Schmedtmann"
-                loans={278}
-                available={4}
-                rating={4.6}
-                category="Web Dev"
-              />
+              {loadingMostBorrowed ? (
+                <div className="py-10 text-center">Đang tải sách mượn nhiều...</div>
+              ) : mostBorrowedPublications.length > 0 ? (
+                mostBorrowedPublications.slice(0, 4).map((pub, index) => (
+                  <TrendingItem
+                    key={pub.publicationId}
+                    id={pub.publicationId}
+                    rank={index + 1}
+                    title={pub.title}
+                    author={pub.authorNames.join(', ')}
+                    loans={pub.borrowCount || 0}
+                    available={pub.availableItems}
+                    rating={pub.ratingAverage}
+                    category="Sách" // Dữ liệu MostBorrowedPublication không trả về category, tạm để "Sách"
+                    image={pub.coverImageUrl}
+                  />
+                ))
+              ) : (
+                <div className="py-10 text-center text-gray-500">Không có sách mượn nhiều.</div>
+              )}
             </div>
           </div>
         </div>

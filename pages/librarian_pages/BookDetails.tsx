@@ -21,6 +21,7 @@ import { Author, Category, Publisher, Tag } from '../../api/publicationTypes';
 import AsyncCreatableSelectField from '../../components/AsyncCreatableSelectField';
 
 type FormState = {
+  id: string;
   title: string;
   authors: { id: string | null; name: string }[];
   isbn: string;
@@ -61,6 +62,7 @@ const FACULTY_TARGET_OPTIONS = [
 ];
 
 const emptyForm: FormState = {
+  id: '',
   title: '',
   authors: [{ id: null, name: '' }],
   isbn: '',
@@ -111,11 +113,12 @@ const BookDetails = () => {
       if (isCreate) return;
       try {
         setLoading(true);
-        const res = await publicationsService.getLibrarianPublicationById(id);
+        const res = await publicationsService.getPublicationById(id);
         if (res.code === 200 && res.data) {
           const detail = res.data;
           const pub = detail.publication;
           setForm({
+            id: id,
             title: pub.title ?? '',
             subtitle: pub.subtitle ?? '',
             authors: detail.authors?.length
@@ -494,20 +497,16 @@ const BookDetails = () => {
             </h1>
           </div>
         </div>
-        {/* <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50">
-            ... Thêm
-          </button>
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 flex items-center gap-2">
-            <X size={16} /> Hủy
-          </button>
-          <button className="px-4 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2">
-            <Save size={18} /> Lưu Thay Đổi
-          </button>
-          <button className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 flex items-center gap-2">
-            <Plus size={18} /> Lưu & Thêm đầu sách
-          </button>
-        </div> */}
+        <div className="flex gap-3">
+          {!isCreate && (
+            <button
+              onClick={() => navigate('/librarianpage/copies/new', { state: { publicationId: form.id } })}
+              className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 flex items-center gap-2"
+            >
+              <Copy size={18} /> Tạo Bản Sao Mới
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

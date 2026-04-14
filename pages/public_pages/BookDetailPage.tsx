@@ -20,46 +20,26 @@ import {
   ThumbsUp,
   User,
 } from 'lucide-react';
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   Badge,
   Button,
   StarRating,
   StatusIndicator,
 } from '../../components/ui';
+import publicationsService from '../../api/publicationsService';
+import { PublicationDetailResponse } from '../../api/publicationTypes';
 
 // --- Sub-components for Tabs ---
 
-const OverviewTab = () => (
+const OverviewTab = ({ data }: { data: PublicationDetailResponse }) => (
   <div className="animate-fade-in">
     {/* Description */}
     <div className="mb-10 max-w-4xl">
       <h3 className="text-xl font-bold text-gray-900 mb-4">Mô tả chi tiết</h3>
-      <div className="text-gray-700 text-sm leading-7 space-y-4 text-justify">
-        <p>
-          <strong className="text-gray-900">Machine Learning cơ bản</strong> là
-          cuốn sách giáo trình được biên soạn dành riêng cho sinh viên Việt Nam,
-          cung cấp một lộ trình học tập từ căn bản đến nâng cao về học máy. Cuốn
-          sách không chỉ tập trung vào lý thuyết mà còn chú trọng vào thực hành
-          với Python, giúp người đọc có thể áp dụng ngay các kiến thức vào các
-          bài toán thực tế.
-        </p>
-        <p>
-          Nội dung được chia thành 12 chương, bao gồm các chủ đề quan trọng như:
-          Giới thiệu về Machine Learning, Toán học cho ML (Đại số tuyến tính,
-          Giải tích, Xác suất thống kê), các thuật toán Supervised Learning
-          (Linear Regression, Logistic Regression, Support Vector Machine,
-          Decision Trees, Random Forest), Unsupervised Learning (K-Means,
-          Hierarchical Clustering, PCA), và Neural Networks cơ bản.
-        </p>
-        <p>
-          Mỗi chương đều có phần lý thuyết được giải thích rõ ràng với các ví dụ
-          minh họa bằng Python và thư viện scikit-learn. Cuối mỗi chương có bài
-          tập thực hành và câu hỏi ôn tập giúp củng cố kiến thức. Sách đặc biệt
-          phù hợp cho sinh viên ngành Công nghệ thông tin, Khoa học máy tính, và
-          những ai muốn bắt đầu sự nghiệp trong lĩnh vực AI/ML.
-        </p>
+      <div className="text-gray-700 text-sm leading-7 space-y-4 text-justify whitespace-pre-line">
+        {data.publication.description || 'Chưa có mô tả.'}
       </div>
     </div>
 
@@ -73,98 +53,67 @@ const OverviewTab = () => (
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             ISBN
           </span>
-          <span className="font-medium text-gray-900">978-604-73-8234-5</span>
+          <span className="font-medium text-gray-900">{data.publication.isbn || 'N/A'}</span>
         </div>
         <div className="col-span-1">
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             Số trang
           </span>
-          <span className="font-medium text-gray-900">456 trang</span>
+          <span className="font-medium text-gray-900">{data.publication.numberOfPages ? `${data.publication.numberOfPages} trang` : 'N/A'}</span>
         </div>
         <div className="col-span-1">
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             Phiên bản
           </span>
-          <span className="font-medium text-gray-900">Lần xuất bản thứ 2</span>
+          <span className="font-medium text-gray-900">{data.publication.edition ? `Lần xuất bản thứ ${data.publication.edition}` : 'N/A'}</span>
         </div>
         <div className="col-span-1">
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             Năm xuất bản
           </span>
-          <span className="font-medium text-gray-900">2023</span>
+          <span className="font-medium text-gray-900">{data.publication.publicationYear || 'N/A'}</span>
         </div>
 
-        <div className="col-span-1">
-          <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
-            Series
-          </span>
-          <span className="font-medium text-gray-900">
-            AI & Data Science Series
-          </span>
-        </div>
         <div className="col-span-1">
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             Nhà xuất bản
           </span>
           <span className="font-medium text-gray-900">
-            NXB Đại học Quốc gia Hà Nội
+            {data.publisher?.name || 'N/A'}
           </span>
         </div>
         <div className="col-span-1">
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             Ngôn ngữ
           </span>
-          <span className="font-medium text-gray-900">Tiếng Việt</span>
+          <span className="font-medium text-gray-900">{data.publication.language || 'N/A'}</span>
         </div>
         <div className="col-span-1">
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             Kích thước / Trọng lượng
           </span>
-          <span className="font-medium text-gray-900">24 x 16 cm / 650g</span>
+          <span className="font-medium text-gray-900">
+            {data.publication.size || '?'} / {data.publication.weight ? `${data.publication.weight}kg` : '?'}
+          </span>
         </div>
 
-        <div className="col-span-2 md:col-span-4 border-t border-gray-200 pt-4 mt-2">
-          <span className="block text-xs text-gray-500 uppercase font-semibold mb-2">
-            Từ khóa (Subject Headings)
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {[
-              'Machine Learning',
-              'Artificial Intelligence',
-              'Python Programming',
-              'Data Science',
-              'Computer Science',
-            ].map((k) => (
-              <span
-                key={k}
-                className="bg-white border border-gray-200 text-gray-600 text-xs px-2 py-1 rounded hover:border-blue-300 hover:text-blue-600 cursor-pointer transition-colors"
-              >
-                {k}
-              </span>
-            ))}
+        {data.tags && data.tags.length > 0 && (
+          <div className="col-span-2 md:col-span-4 border-t border-gray-200 pt-4 mt-2">
+            <span className="block text-xs text-gray-500 uppercase font-semibold mb-2">
+              Từ khóa (Subject Headings)
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {data.tags.map((k) => (
+                <span
+                  key={k.id}
+                  className="bg-white border border-gray-200 text-gray-600 text-xs px-2 py-1 rounded hover:border-blue-300 hover:text-blue-600 cursor-pointer transition-colors"
+                >
+                  {k.name}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="col-span-2 md:col-span-4">
-          <span className="block text-xs text-gray-500 uppercase font-semibold mb-2">
-            Keywords
-          </span>
-          <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-            {[
-              'supervised learning',
-              'unsupervised learning',
-              'neural networks',
-              'regression',
-              'classification',
-              'clustering',
-              'scikit-learn',
-              'deep learning',
-            ].map((k, i) => (
-              <span key={k}>
-                {k} {i < 7 && '•'}
-              </span>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   </div>
@@ -589,11 +538,52 @@ const RelatedBooksTab = () => (
 // --- Main Page Component ---
 
 const BookDetailPage = () => {
+  const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const prefix = location.pathname.startsWith('/userpage')
     ? '/userpage'
     : '/publicpage';
   const [activeTab, setActiveTab] = useState('overview');
+  const [data, setData] = useState<PublicationDetailResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPublicationDetail = async () => {
+      if (!id) return;
+      try {
+        setIsLoading(true);
+        const response = await publicationsService.getPublicationById(id);
+        if (response.code === 200) {
+          setData(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch publication detail:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPublicationDetail();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <AlertCircle size={48} className="text-red-500 mb-4" />
+        <h2 className="text-xl font-bold text-gray-900">Không tìm thấy thông tin ấn phẩm</h2>
+        <Link to={prefix} className="mt-4 text-blue-600 hover:underline">
+          Quay lại trang chủ
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
@@ -611,8 +601,8 @@ const BookDetailPage = () => {
             Trí tuệ nhân tạo
           </Link>
           <ChevronRight size={14} className="mx-2 text-gray-400" />
-          <span className="text-gray-900 font-medium">
-            Machine Learning cơ bản
+          <span className="text-gray-900 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
+            {data.publication.title}
           </span>
         </div>
       </div>
@@ -624,12 +614,14 @@ const BookDetailPage = () => {
             {/* Left: Cover & Actions */}
             <div className="w-full md:w-1/4 flex-shrink-0">
               <div className="rounded-lg overflow-hidden shadow-lg border border-gray-100 relative group">
-                <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm z-10 flex items-center">
-                  <CheckCircle size={12} className="mr-1" /> Có sẵn
-                </div>
+                {data.items.totalAvailableItems > 0 && (
+                  <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm z-10 flex items-center">
+                    <CheckCircle size={12} className="mr-1" /> Có sẵn
+                  </div>
+                )}
                 <img
-                  src="public/avatar/Avatar.JPG"
-                  alt="Cover"
+                  src={data.publication.coverImageUrl || "public/avatar/Avatar.JPG"}
+                  alt={data.publication.title}
                   className="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-500"
                 />
               </div>
@@ -639,46 +631,47 @@ const BookDetailPage = () => {
             <div className="flex-grow">
               <div className="flex justify-between items-start">
                 <h1 className="text-3xl font-extrabold text-gray-900 mb-2 leading-tight">
-                  Machine Learning cơ bản
+                  {data.publication.title}
                 </h1>
                 <div className="flex items-center space-x-1 bg-blue-50 px-2 py-1 rounded text-blue-700 font-bold text-lg">
-                  <span>4.6</span> <Star size={16} fill="currentColor" />{' '}
+                  <span>{data.ratings.averageRating}</span> <Star size={16} fill="currentColor" />{' '}
                   <span className="text-xs font-normal text-gray-500 ml-1">
-                    (128 đánh giá)
+                    ({data.ratings.totalRatings} đánh giá)
                   </span>
                 </div>
               </div>
-              <p className="text-xl text-gray-600 mb-4 font-light">
-                Từ lý thuyết đến thực hành với Python
-              </p>
+              {data.publication.subtitle && (
+                <p className="text-xl text-gray-600 mb-4 font-light">
+                  {data.publication.subtitle}
+                </p>
+              )}
 
               <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 mb-6 border-b border-gray-100 pb-6">
                 <div className="flex items-center font-medium">
                   <User size={16} className="mr-2 text-blue-500" />{' '}
-                  <span className="text-gray-900 mr-1">Tác giả:</span> Vũ Hữu
-                  Tiệp
+                  <span className="text-gray-900 mr-1">Tác giả:</span> {data.authors.map(a => a.name).join(', ')}
                 </div>
                 <div className="flex items-center font-medium">
                   <Calendar size={16} className="mr-2 text-blue-500" />{' '}
-                  <span className="text-gray-900 mr-1">Năm:</span> 2023
+                  <span className="text-gray-900 mr-1">Năm:</span> {data.publication.publicationYear}
                 </div>
                 <div className="flex items-center font-medium">
                   <BookOpen size={16} className="mr-2 text-blue-500" />{' '}
-                  <span className="text-gray-900 mr-1">NXB:</span> Đại học Quốc
-                  gia
+                  <span className="text-gray-900 mr-1">NXB:</span> {data.publisher.name}
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2 mb-6">
-                <Badge variant="primary" className="text-sm py-1 px-3">
-                  Tiếng Việt
-                </Badge>
-                <Badge variant="secondary" className="text-sm py-1 px-3">
-                  Giáo trình
-                </Badge>
-                <Badge variant="success" className="text-sm py-1 px-3">
-                  Khoa học máy tính
-                </Badge>
+                {data.publication.language && (
+                  <Badge variant="primary" className="text-sm py-1 px-3">
+                    {data.publication.language}
+                  </Badge>
+                )}
+                {data.categories && data.categories.map((cat) => (
+                  <Badge key={cat.id} variant="secondary" className="text-sm py-1 px-3">
+                    {cat.name}
+                  </Badge>
+                ))}
               </div>
 
               <div className="flex flex-wrap gap-3 mb-8">
@@ -733,97 +726,29 @@ const BookDetailPage = () => {
 
                   <div className="flex flex-col lg:flex-row gap-8">
                     <div className="flex-grow">
-                      <p className="text-gray-700 leading-relaxed text-sm text-justify">
-                        Cuốn sách này cung cấp kiến thức nền tảng về Machine
-                        Learning, từ các khái niệm cơ bản đến các thuật toán phổ
-                        biến như Linear Regression, Logistic Regression,
-                        Decision Trees, và Neural Networks. Tác giả trình bày
-                        một cách dễ hiểu với nhiều ví dụ minh họa bằng Python và
-                        thư viện scikit-learn.
-                        <br />
-                        <br />
-                        Nội dung được thiết kế phù hợp cho sinh viên đại học
-                        ngành Khoa học máy tính, Công nghệ thông tin, và những
-                        người mới bắt đầu tìm hiểu về AI. Sách bao gồm cả lý
-                        thuyết toán học và bài tập thực hành giúp người đọc có
-                        thể áp dụng ngay vào các dự án thực tế.
+                      <p className="text-gray-700 leading-relaxed text-sm text-justify whitespace-pre-line">
+                        {data.publication.aiSummary || "Chưa có AI Summary cho ấn phẩm này."}
                       </p>
                     </div>
-                    <div className="lg:w-1/3 flex-shrink-0 bg-white/60 rounded-xl p-4 border border-indigo-100 backdrop-blur-sm">
-                      <h4 className="font-bold text-indigo-900 text-sm mb-3 flex items-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2"></div>
-                        Đối tượng phù hợp
-                      </h4>
-                      <ul className="space-y-2 text-sm text-gray-700">
-                        <li className="flex items-start">
-                          <CheckCircle
-                            size={14}
-                            className="mr-2 mt-0.5 text-green-500 flex-shrink-0"
-                          />{' '}
-                          Sinh viên năm 3-4 ngành CNTT
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle
-                            size={14}
-                            className="mr-2 mt-0.5 text-green-500 flex-shrink-0"
-                          />{' '}
-                          Người mới bắt đầu với ML
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle
-                            size={14}
-                            className="mr-2 mt-0.5 text-green-500 flex-shrink-0"
-                          />{' '}
-                          Có kiến thức Python cơ bản
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle
-                            size={14}
-                            className="mr-2 mt-0.5 text-green-500 flex-shrink-0"
-                          />{' '}
-                          Quan tâm đến AI/Data Science
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <Badge
-                      variant="ai"
-                      className="bg-blue-600 text-white border-none shadow-sm px-3 py-1"
-                    >
-                      Machine Learning
-                    </Badge>
-                    <Badge
-                      variant="ai"
-                      className="bg-green-600 text-white border-none shadow-sm px-3 py-1"
-                    >
-                      Python
-                    </Badge>
-                    <Badge
-                      variant="ai"
-                      className="bg-yellow-600 text-white border-none shadow-sm px-3 py-1"
-                    >
-                      Beginner
-                    </Badge>
-                    <Badge
-                      variant="ai"
-                      className="bg-purple-600 text-white border-none shadow-sm px-3 py-1"
-                    >
-                      Scikit-learn
-                    </Badge>
-                    <Badge
-                      variant="ai"
-                      className="bg-red-500 text-white border-none shadow-sm px-3 py-1"
-                    >
-                      Supervised Learning
-                    </Badge>
-                    <Badge
-                      variant="ai"
-                      className="bg-indigo-500 text-white border-none shadow-sm px-3 py-1"
-                    >
-                      Neural Networks
-                    </Badge>
+                    {data.publication.aiTargetAudience && (
+                      <div className="lg:w-1/3 flex-shrink-0 bg-white/60 rounded-xl p-4 border border-indigo-100 backdrop-blur-sm">
+                        <h4 className="font-bold text-indigo-900 text-sm mb-3 flex items-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2"></div>
+                          Đối tượng phù hợp
+                        </h4>
+                        <ul className="space-y-2 text-sm text-gray-700">
+                          {data.publication.aiTargetAudience.split(',').map((item, idx) => (
+                            <li key={idx} className="flex items-start">
+                              <CheckCircle
+                                size={14}
+                                className="mr-2 mt-0.5 text-green-500 flex-shrink-0"
+                              />{' '}
+                              {item.trim()}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -840,11 +765,11 @@ const BookDetailPage = () => {
               <div className="flex items-center space-x-4 text-sm font-medium">
                 <span className="flex items-center">
                   <span className="w-2.5 h-2.5 rounded-full bg-green-500 mr-2"></span>{' '}
-                  Có sẵn: <span className="ml-1 font-bold">2</span>
+                  Có sẵn: <span className="ml-1 font-bold">{data.items.totalAvailableItems}</span>
                 </span>
                 <span className="flex items-center">
                   <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 mr-2"></span>{' '}
-                  Đang mượn: <span className="ml-1 font-bold">1</span>
+                  Đang mượn: <span className="ml-1 font-bold">{data.items.totalBorrowedItems}</span>
                 </span>
               </div>
             </div>
@@ -854,9 +779,8 @@ const BookDetailPage = () => {
                 <Clock size={14} />
               </div>
               <span>
-                <strong>Thông báo:</strong> Có 3 bản giấy (2 bản khả dụng). Bản
-                đang mượn sẽ được trả vào <strong>12/01/2026</strong>. Vui lòng
-                đặt trước để giữ chỗ.
+                <strong>Thông báo:</strong> Có {data.items.totalItems} bản giấy ({data.items.totalAvailableItems} bản khả dụng).
+                {data.items.totalAvailableItems === 0 && data.items.totalItems > 0 && " Hiện đã được mượn hết. Vui lòng đặt trước để giữ chỗ."}
               </span>
             </div>
 
@@ -962,7 +886,7 @@ const BookDetailPage = () => {
               {[
                 { id: 'overview', label: 'Tổng quan', icon: AlertCircle },
                 { id: 'toc', label: 'Mục lục chi tiết', icon: List },
-                { id: 'reviews', label: 'Đánh giá (128)', icon: Star },
+                { id: 'reviews', label: `Đánh giá (${data.ratings.totalRatings})`, icon: Star },
                 { id: 'related', label: 'Sách liên quan', icon: BookOpen },
               ].map((tab) => (
                 <button
@@ -988,7 +912,7 @@ const BookDetailPage = () => {
 
           {/* Tab Content */}
           <div className="p-6 md:p-8">
-            {activeTab === 'overview' && <OverviewTab />}
+            {activeTab === 'overview' && <OverviewTab data={data} />}
             {activeTab === 'toc' && <TableOfContentsTab />}
             {activeTab === 'reviews' && <ReviewsTab />}
             {activeTab === 'related' && <RelatedBooksTab />}

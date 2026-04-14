@@ -1,4 +1,3 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,7 +14,8 @@ import {
   Trash2,
   TrendingUp,
 } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 
 // Đảm bảo đường dẫn này đúng với project của bạn
@@ -55,6 +55,7 @@ export interface BookCopy {
 }
 
 type CopyForm = {
+  barcode?: string;
   branch: string; 
   condition: string;
   status: string;
@@ -65,20 +66,25 @@ type CopyForm = {
 const CopyDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [loading, setLoading] = useState(true);
+  const isCreate = id === 'new';
+  const statePublicationId = location.state?.publicationId;
+
+  const [loading, setLoading] = useState(!isCreate);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [copyData, setCopyData] = useState<BookCopy | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(isCreate);
 
   const [transactionsData, setTransactionsData] = useState<TransactionsPage | null>(null);
   const [transactionPage, setTransactionPage] = useState(0);
 
   const [form, setForm] = useState<CopyForm>({
-    branch: 'Cơ sở 1 - Dĩ An',
+    barcode: '',
+    branch: '',
     condition: 'NEW',
     status: 'AVAILABLE',
     shelf: '',
@@ -100,7 +106,8 @@ const CopyDetails = () => {
         setError(null);
         setLoading(false);
         setForm({
-          branch: 'Cơ sở 1 - Dĩ An',
+          barcode: '',
+          branch: '',
           condition: 'NEW',
           status: 'AVAILABLE',
           shelf: '',
@@ -144,8 +151,8 @@ const CopyDetails = () => {
     const fetchHistory = async () => {
       if (!id || id === 'new') return;
       try {
-        const transRes: any = await axiosInstance.get(`/transactions`, {
-          params: { itemId: id, page: transactionPage, size: 10 }
+        const transRes: any = await axiosInstance.get(`/transactions/items/${id}`, {
+          params: { page: transactionPage, size: 10 }
         });
         const data = transRes?.data || transRes;
         if (data && typeof data === 'object') {
@@ -216,34 +223,63 @@ const CopyDetails = () => {
   };
 
   const handleSave = async () => {
-    if (!copyData) return;
+    if (!copyData && !isCreate) return;
 
     try {
       setSaving(true);
       setError(null);
 
-      const payload = {
-        condition: form.condition,
-        status: form.status,
-        shelf: form.shelf,
-        branch: form.branch,
-      };
+      if (isCreate) {
+        if (!statePublicationId) {
+          setError('Không tìm thấy thông tin ấn phẩm (publicationId).');
+          return;
+        }
+        const payload = {
+          publicationId: statePublicationId,
+          barcode: form.barcode,
+          branch: form.branch,
+          shelf: form.shelf,
+          condition: form.condition,
+        };
+        const res: any = await axiosInstance.post(`/items`, payload);
+        
+        if (res && res.code === 200) {
+          alert(res.message);
+          
+          if (res.data && res.data.id) {
+            navigate(`/librarian/copies/${res.data.id}`, { replace: true });
+          } else {
+            navigate('/librarian/copies');
+          }
+        } else {
+          setError(res?.message || 'Tạo thất bại. Vui lòng thử lại.');
+        }
+      } else {
+        const payload = {
+          condition: form.condition,
+          status: form.status,
+          shelf: form.shelf,
+          branch: form.branch,
+        };
 
-      await axiosInstance.put(`/items/${copyData.id}`, payload);
-      setIsEditing(false);
+        if (copyData) {
+          await axiosInstance.put(`/items/${copyData.id}`, payload);
+        }
+        setIsEditing(false);
 
-      // update local state (optimistic refresh)
-      setCopyData((prev) =>
-        prev
-          ? ({
-              ...prev,
-              condition: payload.condition,
-              status: payload.status,
-              shelf: payload.shelf,
-              branch: payload.branch,
-            } as BookCopy)
-          : prev
-      );
+        // update local state (optimistic refresh)
+        setCopyData((prev) =>
+          prev
+            ? ({
+                ...prev,
+                condition: payload.condition,
+                status: payload.status,
+                shelf: payload.shelf,
+                branch: payload.branch,
+              } as BookCopy)
+            : prev
+        );
+      }
     } catch (e) {
       console.error(e);
       setError('Lưu thất bại. Vui lòng thử lại.');
@@ -303,11 +339,11 @@ const CopyDetails = () => {
 
       {!loading && error && <div className="text-center text-red-600 py-10">{error}</div>}
 
-      {!loading && !error && !copyData && (
-        <div className="text-center text-slate-500 py-10">Bản sao mới: điền thông tin để thêm.</div>
+      {!loading && !error && !copyData && !isCreate && (
+        <div className="text-center text-slate-500 py-10">Bản sao không tồn tại.</div>
       )}
 
-      {!loading && copyData && publication && (
+      {!loading && (copyData || isCreate) && (
         <>
           {/* Breadcrumb & Header */}
           <div className="flex flex-col gap-1">
@@ -320,32 +356,36 @@ const CopyDetails = () => {
                 Bản sao
               </Link>
               <span>&gt;</span>
-              <span className="text-slate-800 font-medium">{copyData.barcode}</span>
+              <span className="text-slate-800 font-medium">{isCreate ? 'Trang thêm mới' : copyData?.barcode}</span>
             </div>
 
             <div className="flex justify-between items-end mt-2">
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-slate-900">Chi tiết bản sao</h1>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-bold border ${getStatusBadgeClass(
-                    form.status
-                  )}`}
-                >
-                  {getStatusLabel(form.status)}
-                </span>
+                <h1 className="text-3xl font-bold text-slate-900">{isCreate ? 'Thêm mới bản sao' : 'Chi tiết bản sao'}</h1>
+                {!isCreate && (
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-bold border ${getStatusBadgeClass(
+                      form.status
+                    )}`}
+                  >
+                    {getStatusLabel(form.status)}
+                  </span>
+                )}
               </div>
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm">
-                  <History size={18} /> Xem lịch sử
-                </button>
+                {!isCreate && (
+                  <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm">
+                    <History size={18} /> Xem lịch sử
+                  </button>
+                )}
 
                 <button
                   onClick={handleSave}
                   disabled={saving || !isEditing}
                   className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm disabled:opacity-60"
                 >
-                  <Save size={18} /> {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  <Save size={18} /> {saving ? (isCreate ? 'Đang tạo...' : 'Đang lưu...') : (isCreate ? 'Tạo bản sao mới' : 'Lưu thay đổi')}
                 </button>
               </div>
             </div>
@@ -366,22 +406,22 @@ const CopyDetails = () => {
                     <h2 className="font-bold text-lg text-slate-800">Thông tin bản sao</h2>
                   </div>
                   
-                  {!isEditing ? (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded flex items-center gap-2"
-                    >
-                      <PenTool size={14} /> Chỉnh sửa
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setIsEditing(false);
-                      }}
-                      className="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded flex items-center gap-2"
-                    >
-                      Hủy
-                    </button>
+                  {!isCreate && (
+                    !isEditing ? (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded flex items-center gap-2"
+                      >
+                        <PenTool size={14} /> Chỉnh sửa
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded flex items-center gap-2"
+                      >
+                        Hủy
+                      </button>
+                    )
                   )}
                 </div>
 
@@ -392,9 +432,11 @@ const CopyDetails = () => {
                     </label>
                     <input
                       type="text"
-                      value={copyData.barcode}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono bg-slate-50 text-slate-500 cursor-not-allowed"
-                      readOnly
+                      value={isCreate ? form.barcode : copyData?.barcode || ''}
+                      onChange={(e) => isCreate && onChange('barcode', e.target.value)}
+                      className={`w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono ${!isCreate ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+                      readOnly={!isCreate}
+                      placeholder={isCreate ? 'VD: 193819405' : ''}
                     />
                   </div>
 
@@ -402,15 +444,14 @@ const CopyDetails = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Vị trí thư viện (Cơ sở) <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={form.branch}
                       onChange={(e) => onChange('branch', e.target.value)}
                       disabled={!isEditing}
+                      placeholder="VD: Thư viện H6"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
-                    >
-                      <option value="Cơ sở 1 - Dĩ An">Cơ sở 1 - Dĩ An</option>
-                      <option value="Cơ sở 2 - Lý Thường Kiệt">Cơ sở 2 - Lý Thường Kiệt</option>
-                    </select>
+                    />
                   </div>
 
                   <div>
@@ -479,13 +520,12 @@ const CopyDetails = () => {
                   </div>
 
                   <Link
-                    to={`/librarian/books/${(publication as any)?.publication?.id || publication.id}`}
+                    to={`/librarian/books/${(publication as any)?.publication?.id || publication?.id || statePublicationId || ''}`}
                     className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded flex items-center gap-2 hover:bg-blue-700"
                   >
                     <ExternalLink size={14} /> Xem ấn phẩm
                   </Link>
                 </div>
-
                 <div className="flex gap-6">
                   <div className="w-24 h-36 bg-slate-200 rounded-lg shrink-0 overflow-hidden shadow-sm">
                     {((publication as any)?.publication?.coverImageUrl || (publication as any)?.coverImageUrl) ? (
@@ -594,282 +634,289 @@ const CopyDetails = () => {
                 </div>
               </div>
 
-              {/* 3. Borrowing History */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <History className="text-purple-600" size={20} />
-                    <h2 className="font-bold text-lg text-slate-800">Lịch sử mượn</h2>
+              {/* Extras (Hidden on create) */}
+              {!isCreate && (
+                <>
+                  {/* 3. Borrowing History */}
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <History className="text-purple-600" size={20} />
+                        <h2 className="font-bold text-lg text-slate-800">Lịch sử mượn</h2>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1 border border-slate-200 rounded text-sm hover:bg-slate-50 flex items-center gap-1">
+                          <Printer size={14} /> Tải xuống
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                            <th className="px-4 py-3 font-semibold">T/A ID</th>
+                            <th className="px-4 py-3 font-semibold">Người mượn</th>
+                            <th className="px-4 py-3 font-semibold">Ngày mượn</th>
+                            <th className="px-4 py-3 font-semibold">Hạn trả</th>
+                            <th className="px-4 py-3 font-semibold">Ngày trả</th>
+                            <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                            <th className="px-4 py-3 font-semibold">Phí</th>
+                            <th className="px-4 py-3 font-semibold text-right"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {transactionsData && transactionsData.content && transactionsData.content.length > 0 ? (
+                            transactionsData.content.map((row) => {
+                              const isOverdue = row.status === 'OVERDUE';
+                              const statusClass = 
+                                row.status === 'RETURNED' ? 'bg-green-100 text-green-700' :
+                                row.status === 'BORROWING' ? 'bg-blue-100 text-blue-700' :
+                                row.status === 'WAITING_FOR_PICKUP' ? 'bg-amber-100 text-amber-700' :
+                                isOverdue ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-700';
+
+                              return (
+                                <tr key={row.transactionId} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 font-mono text-slate-600 text-xs">{row.transactionId}</td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                        {(row.fullName || 'U').charAt(0)}
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-slate-900">{row.fullName}</div>
+                                        <div className="text-[10px] text-slate-500">{row.studentId}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    {row.borrowedDate ? new Date(row.borrowedDate).toLocaleDateString('vi-VN') : '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    {row.dueDate ? new Date(row.dueDate).toLocaleDateString('vi-VN') : '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    {row.returnedDate ? new Date(row.returnedDate).toLocaleDateString('vi-VN') : '-'}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusClass}`}>
+                                      {row.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    {row.fineAmount && row.fineAmount > 0 ? `${row.fineAmount.toLocaleString()} VND` : '-'}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <button className="text-blue-600 hover:text-blue-800">
+                                      <ExternalLink size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                                Chưa có lịch sử mượn
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {transactionsData && transactionsData.totalPages > 0 && (
+                      <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50">
+                        <span className="text-xs text-slate-500">
+                          Trang {transactionsData.currentPage + 1} / {transactionsData.totalPages} (Tổng {transactionsData.totalElements} lượt)
+                        </span>
+                        <div className="flex gap-1">
+                          <button 
+                            disabled={transactionsData.first}
+                            onClick={() => setTransactionPage(p => Math.max(0, p - 1))}
+                            className={`w-16 h-7 flex items-center justify-center border rounded text-xs ${transactionsData.first ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            Trước
+                          </button>
+                          <button 
+                            disabled={transactionsData.last}
+                            onClick={() => setTransactionPage(p => p + 1)}
+                            className={`w-16 h-7 flex items-center justify-center border rounded text-xs ${transactionsData.last ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            Tiếp
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1 border border-slate-200 rounded text-sm hover:bg-slate-50 flex items-center gap-1">
-                      <Printer size={14} /> Tải xuống
+
+                  {/* 4. Analytics (MOCK) */}
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+                      <TrendingUp className="text-blue-600" size={20} />
+                      <h2 className="font-bold text-lg text-slate-800">Circulation Analytics</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-4">Số lượt mượn theo tháng (2024)</h4>
+                        <div className="h-40 flex items-end justify-between gap-1">
+                          {[2, 3, 4, 3, 5, 6, 4, 3, 5, 2, 1, 3].map((h, i) => (
+                            <div
+                              key={i}
+                              className="w-full bg-blue-500 rounded-t-sm hover:bg-blue-600 transition-colors relative group"
+                              style={{ height: `${h * 15}%` }}
+                            >
+                              <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-600 opacity-0 group-hover:opacity-100">
+                                {h}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between mt-2 text-[10px] text-slate-500 uppercase font-medium">
+                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m) => (
+                            <span key={m}>{m}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 mb-4">Phân bố người mượn</h4>
+                        <div className="flex items-center gap-6">
+                          <div
+                            className="w-32 h-32 rounded-full relative flex-shrink-0"
+                            style={{
+                              background:
+                                'conic-gradient(#3b82f6 0% 31.9%, #10b981 31.9% 57.4%, #f59e0b 57.4% 74.4%, #ef4444 74.4% 89.3%, #6366f1 89.3% 100%)',
+                            }}
+                          >
+                            <div className="absolute inset-0 m-8 bg-white rounded-full"></div>
+                          </div>
+                          <div className="space-y-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-blue-500"></span> Computer Science (31.9%)
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-green-500"></span> Engineering (25.5%)
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-amber-500"></span> Business (17.0%)
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-red-500"></span> Medicine (14.9%)
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Other (10.6%)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5. Maintenance & Log (MOCK) */}
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+                      <AlertTriangle className="text-blue-600" size={20} />
+                      <h2 className="font-bold text-lg text-slate-800">Tình trạng & bảo trì bản sao</h2>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 relative">
+                        <div className="absolute top-4 right-4 text-emerald-600">
+                          <CheckCircle size={20} className="fill-emerald-200" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700">Tình trạng tổng quan</p>
+                        <h3 className="text-xl font-bold text-slate-900 mt-1">Tốt</h3>
+                        <p className="text-[10px] text-slate-500 mt-2">Lần kiểm tra gần nhất: 01/12/2024</p>
+                      </div>
+                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 relative">
+                        <div className="absolute top-4 right-4 text-blue-600">
+                          <PenTool size={20} className="fill-blue-200" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700">Hạn bảo trì</p>
+                        <h3 className="text-xl font-bold text-slate-900 mt-1">Không</h3>
+                        <p className="text-[10px] text-slate-500 mt-2">Lần kiểm tra tiếp theo: 01/03/2025</p>
+                      </div>
+                      <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 relative">
+                        <div className="absolute top-4 right-4 text-purple-600">
+                          <span className="font-bold text-lg">$</span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700">Giá trị ước tính</p>
+                        <h3 className="text-xl font-bold text-slate-900 mt-1">405,000 VND</h3>
+                        <p className="text-[10px] text-slate-500 mt-2">90% của tổng giá gốc</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 pt-4 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold text-lg text-slate-800">Nhật ký hoạt động</h4>
+                        <button className="text-sm text-blue-600 hover:underline">Xem tất cả</button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {[
+                          {
+                            title: 'Bản sao được mượn bởi Phạm Minh Tuấn',
+                            sub: 'Loan ID: LN-2024-0892 - Returned on time, no fines',
+                            date: 'Dec 5, 2024 14:23',
+                            color: 'green',
+                          },
+                          {
+                            title: 'Việc kiểm tra tình trạng đã hoàn tất',
+                            sub: 'Kiểm tra định kỳ bởi Nguyễn Văn A - Tình trạng: Xuất sắc',
+                            date: 'Dec 1, 2024 09:15',
+                            color: 'blue',
+                          },
+                          {
+                            title: 'Sản phẩm đã được kiểm tra cho Phạm Minh Tuấn',
+                            sub: 'Loan ID: LN-2024-0892 - Due date: Dec 15, 2024',
+                            date: 'Nov 15, 2024 10:45',
+                            color: 'slate',
+                          },
+                        ].map((log, i) => (
+                          <div key={i} className="flex gap-3 text-sm">
+                            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${logDotClass(log.color)}`} />
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-800">{log.title}</p>
+                              <p className="text-xs text-slate-500">{log.sub}</p>
+                            </div>
+                            <span className="text-xs text-slate-400 tabular-nums shrink-0">{log.date}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 6. Danger Zone */}
+              {!isCreate && (
+                <div className="bg-red-50 rounded-xl border border-red-100 p-6">
+                  <div className="flex items-center gap-2 mb-2 text-red-700">
+                    <AlertTriangle size={20} />
+                    <h3 className="font-bold">Vùng nguy hiểm</h3>
+                  </div>
+                  <p className="text-sm text-red-600 mb-4">
+                    Những hành động không thể hoàn tác, đòi hỏi sự cân nhắc kỹ lưỡng.
+                  </p>
+                  <div className="bg-white p-4 rounded-lg border border-red-100 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">Xóa bản sao</h4>
+                      <p className="text-xs text-slate-500">
+                        Xóa vĩnh viễn bản sao này khỏi hệ thống. Hành động này không thể hoàn tác.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-60"
+                    >
+                      <Trash2 size={16} /> {deleting ? 'Đang xóa...' : 'Xóa bản sao'}
                     </button>
                   </div>
                 </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                        <th className="px-4 py-3 font-semibold">T/A ID</th>
-                        <th className="px-4 py-3 font-semibold">Người mượn</th>
-                        <th className="px-4 py-3 font-semibold">Ngày mượn</th>
-                        <th className="px-4 py-3 font-semibold">Hạn trả</th>
-                        <th className="px-4 py-3 font-semibold">Ngày trả</th>
-                        <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                        <th className="px-4 py-3 font-semibold">Phí</th>
-                        <th className="px-4 py-3 font-semibold text-right"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {transactionsData && transactionsData.content && transactionsData.content.length > 0 ? (
-                        transactionsData.content.map((row) => {
-                          const isOverdue = row.status === 'OVERDUE';
-                          const statusClass = 
-                            row.status === 'RETURNED' ? 'bg-green-100 text-green-700' :
-                            row.status === 'BORROWING' ? 'bg-blue-100 text-blue-700' :
-                            row.status === 'WAITING_FOR_PICKUP' ? 'bg-amber-100 text-amber-700' :
-                            isOverdue ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-700';
-
-                          return (
-                            <tr key={row.transactionId} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3 font-mono text-slate-600 text-xs">{row.transactionId}</td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                                    {(row.fullName || 'U').charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-slate-900">{row.fullName}</div>
-                                    <div className="text-[10px] text-slate-500">{row.studentId}</div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-slate-600">
-                                {row.borrowedDate ? new Date(row.borrowedDate).toLocaleDateString('vi-VN') : '-'}
-                              </td>
-                              <td className="px-4 py-3 text-slate-600">
-                                {row.dueDate ? new Date(row.dueDate).toLocaleDateString('vi-VN') : '-'}
-                              </td>
-                              <td className="px-4 py-3 text-slate-600">
-                                {row.returnedDate ? new Date(row.returnedDate).toLocaleDateString('vi-VN') : '-'}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusClass}`}>
-                                  {row.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-slate-600">
-                                {row.fineAmount && row.fineAmount > 0 ? `${row.fineAmount.toLocaleString()} VND` : '-'}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <button className="text-blue-600 hover:text-blue-800">
-                                  <ExternalLink size={14} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                            Chưa có lịch sử mượn
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {transactionsData && transactionsData.totalPages > 0 && (
-                  <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50">
-                    <span className="text-xs text-slate-500">
-                      Trang {transactionsData.currentPage + 1} / {transactionsData.totalPages} (Tổng {transactionsData.totalElements} lượt)
-                    </span>
-                    <div className="flex gap-1">
-                      <button 
-                        disabled={transactionsData.first}
-                        onClick={() => setTransactionPage(p => Math.max(0, p - 1))}
-                        className={`w-16 h-7 flex items-center justify-center border rounded text-xs ${transactionsData.first ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Trước
-                      </button>
-                      <button 
-                        disabled={transactionsData.last}
-                        onClick={() => setTransactionPage(p => p + 1)}
-                        className={`w-16 h-7 flex items-center justify-center border rounded text-xs ${transactionsData.last ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Tiếp
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 4. Analytics (MOCK) */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                  <TrendingUp className="text-blue-600" size={20} />
-                  <h2 className="font-bold text-lg text-slate-800">Circulation Analytics</h2>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-4">Số lượt mượn theo tháng (2024)</h4>
-                    <div className="h-40 flex items-end justify-between gap-1">
-                      {[2, 3, 4, 3, 5, 6, 4, 3, 5, 2, 1, 3].map((h, i) => (
-                        <div
-                          key={i}
-                          className="w-full bg-blue-500 rounded-t-sm hover:bg-blue-600 transition-colors relative group"
-                          style={{ height: `${h * 15}%` }}
-                        >
-                          <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-600 opacity-0 group-hover:opacity-100">
-                            {h}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between mt-2 text-[10px] text-slate-500 uppercase font-medium">
-                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m) => (
-                        <span key={m}>{m}</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-4">Phân bố người mượn</h4>
-                    <div className="flex items-center gap-6">
-                      <div
-                        className="w-32 h-32 rounded-full relative flex-shrink-0"
-                        style={{
-                          background:
-                            'conic-gradient(#3b82f6 0% 31.9%, #10b981 31.9% 57.4%, #f59e0b 57.4% 74.4%, #ef4444 74.4% 89.3%, #6366f1 89.3% 100%)',
-                        }}
-                      >
-                        <div className="absolute inset-0 m-8 bg-white rounded-full"></div>
-                      </div>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-blue-500"></span> Computer Science (31.9%)
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-500"></span> Engineering (25.5%)
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-amber-500"></span> Business (17.0%)
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-red-500"></span> Medicine (14.9%)
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Other (10.6%)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 5. Maintenance & Log (MOCK) */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                  <AlertTriangle className="text-blue-600" size={20} />
-                  <h2 className="font-bold text-lg text-slate-800">Tình trạng & bảo trì bản sao</h2>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 relative">
-                    <div className="absolute top-4 right-4 text-emerald-600">
-                      <CheckCircle size={20} className="fill-emerald-200" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700">Tình trạng tổng quan</p>
-                    <h3 className="text-xl font-bold text-slate-900 mt-1">Tốt</h3>
-                    <p className="text-[10px] text-slate-500 mt-2">Lần kiểm tra gần nhất: 01/12/2024</p>
-                  </div>
-                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 relative">
-                    <div className="absolute top-4 right-4 text-blue-600">
-                      <PenTool size={20} className="fill-blue-200" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700">Hạn bảo trì</p>
-                    <h3 className="text-xl font-bold text-slate-900 mt-1">Không</h3>
-                    <p className="text-[10px] text-slate-500 mt-2">Lần kiểm tra tiếp theo: 01/03/2025</p>
-                  </div>
-                  <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 relative">
-                    <div className="absolute top-4 right-4 text-purple-600">
-                      <span className="font-bold text-lg">$</span>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700">Giá trị ước tính</p>
-                    <h3 className="text-xl font-bold text-slate-900 mt-1">405,000 VND</h3>
-                    <p className="text-[10px] text-slate-500 mt-2">90% của tổng giá gốc</p>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-4 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-bold text-lg text-slate-800">Nhật ký hoạt động</h4>
-                    <button className="text-sm text-blue-600 hover:underline">Xem tất cả</button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {[
-                      {
-                        title: 'Bản sao được mượn bởi Phạm Minh Tuấn',
-                        sub: 'Loan ID: LN-2024-0892 - Returned on time, no fines',
-                        date: 'Dec 5, 2024 14:23',
-                        color: 'green',
-                      },
-                      {
-                        title: 'Việc kiểm tra tình trạng đã hoàn tất',
-                        sub: 'Kiểm tra định kỳ bởi Nguyễn Văn A - Tình trạng: Xuất sắc',
-                        date: 'Dec 1, 2024 09:15',
-                        color: 'blue',
-                      },
-                      {
-                        title: 'Sản phẩm đã được kiểm tra cho Phạm Minh Tuấn',
-                        sub: 'Loan ID: LN-2024-0892 - Due date: Dec 15, 2024',
-                        date: 'Nov 15, 2024 10:45',
-                        color: 'slate',
-                      },
-                    ].map((log, i) => (
-                      <div key={i} className="flex gap-3 text-sm">
-                        <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${logDotClass(log.color)}`} />
-                        <div className="flex-1">
-                          <p className="font-medium text-slate-800">{log.title}</p>
-                          <p className="text-xs text-slate-500">{log.sub}</p>
-                        </div>
-                        <span className="text-xs text-slate-400 tabular-nums shrink-0">{log.date}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* 6. Danger Zone */}
-              <div className="bg-red-50 rounded-xl border border-red-100 p-6">
-                <div className="flex items-center gap-2 mb-2 text-red-700">
-                  <AlertTriangle size={20} />
-                  <h3 className="font-bold">Vùng nguy hiểm</h3>
-                </div>
-                <p className="text-sm text-red-600 mb-4">
-                  Những hành động không thể hoàn tác, đòi hỏi sự cân nhắc kỹ lưỡng.
-                </p>
-                <div className="bg-white p-4 rounded-lg border border-red-100 flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">Xóa bản sao</h4>
-                    <p className="text-xs text-slate-500">
-                      Xóa vĩnh viễn bản sao này khỏi hệ thống. Hành động này không thể hoàn tác.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-60"
-                  >
-                    <Trash2 size={16} /> {deleting ? 'Đang xóa...' : 'Xóa bản sao'}
-                  </button>
-                </div>
-              </div>
+              )}
 
               {/* Footer actions */}
               <div className="flex justify-between items-center pt-4">
@@ -881,12 +928,14 @@ const CopyDetails = () => {
                 </button>
 
                 <div className="flex gap-2">
-                  <button
-                    onClick={handleClone}
-                    className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center gap-2"
-                  >
-                    <CopyIcon size={16} /> Nhân bản bản sao
-                  </button>
+                  {!isCreate && (
+                    <button
+                      onClick={handleClone}
+                      className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <CopyIcon size={16} /> Nhân bản bản sao
+                    </button>
+                  )}
                   <button
                     onClick={() => navigate('/librarian/copies')}
                     className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50"
@@ -898,7 +947,7 @@ const CopyDetails = () => {
                     disabled={saving}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
                   >
-                    <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    <Save size={16} /> {saving ? (isCreate ? 'Đang tạo...' : 'Đang lưu...') : (isCreate ? 'Tạo bản sao mới' : 'Lưu thay đổi')}
                   </button>
                 </div>
               </div>
@@ -915,7 +964,7 @@ const CopyDetails = () => {
                     </div>
                     <div>
                       <p className="text-xs text-slate-500 uppercase">Tổng số lượt mượn</p>
-                      <p className="text-xl font-bold text-slate-900">{transactionsData.totalElements}</p>
+                      <p className="text-xl font-bold text-slate-900">{transactionsData?.totalElements || 0}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -933,7 +982,7 @@ const CopyDetails = () => {
                     </div>
                     <div>
                       <p className="text-xs text-slate-500 uppercase">Ngày trả gần nhất</p>
-                      <p className="text-lg font-bold text-slate-900">Dec 5, 2024</p>
+                      <p className="text-lg font-bold text-slate-900">-</p>
                     </div>
                   </div>
                 </div>
@@ -949,10 +998,10 @@ const CopyDetails = () => {
                       <div key={i} className="bg-black" style={{ width: `${w}px`, height: '100%' }} />
                     ))}
                   </div>
-                  <p className="text-black font-mono text-sm mt-1 font-bold">{copyData.barcode}</p>
+                  <p className="text-black font-mono text-sm mt-1 font-bold">{isCreate ? form.barcode || 'NO BARCODE' : copyData?.barcode}</p>
                 </div>
 
-                <button className="w-full bg-white text-blue-600 font-bold py-2.5 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+                <button className="w-full bg-white text-blue-600 font-bold py-2.5 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 mt-2">
                   <Printer size={18} /> Print Barcode Label
                 </button>
               </div>

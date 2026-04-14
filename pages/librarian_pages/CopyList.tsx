@@ -45,7 +45,7 @@ const CopyList = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const params = new URLSearchParams();
         params.append('page', page.toString());
         params.append('size', size.toString());
@@ -56,7 +56,7 @@ const CopyList = () => {
         params.append('sortDir', sortDir);
 
         const res: any = await axiosInstance.get(`/items?${params.toString()}`);
-        
+
         if (res.code === 200 && res.data) {
           setCopies(res.data.content || []);
           setTotalElements(res.data.totalElements || 0);
@@ -106,12 +106,12 @@ const CopyList = () => {
             Quản lý các tài liệu thư viện vật lý và vật phẩm sách
           </p>
         </div>
-        <Link
+        {/* <Link
           to="/librarian/copies/new"
           className="bg-secondary hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium shadow-sm transition-colors"
         >
           <Plus size={20} /> Thêm Bản Sao Mới
-        </Link>
+        </Link> */}
       </div>
 
       {/* Filters */}
@@ -136,12 +136,12 @@ const CopyList = () => {
               />
             </div>
           </div>
-        
+
           <div className="flex-1">
             <label className="text-xs font-semibold text-slate-500 uppercase mb-1 block">
               Trạng thái
             </label>
-            <select 
+            <select
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
@@ -163,7 +163,7 @@ const CopyList = () => {
               Tình trạng máy
             </label>
             <div className="flex gap-2">
-              <select 
+              <select
                 value={condition}
                 onChange={(e) => {
                   setCondition(e.target.value);
@@ -175,7 +175,7 @@ const CopyList = () => {
                 <option value="NEW">NEW (Mới)</option>
                 <option value="OLD">OLD (Cũ)</option>
               </select>
-              <button 
+              <button
                 onClick={handleApplyFilters}
                 className="bg-secondary text-white h-[42px] px-4 rounded-lg flex items-center justify-center hover:bg-indigo-700"
               >
@@ -286,17 +286,16 @@ const CopyList = () => {
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider
-                    ${
-                      copy.status === 'AVAILABLE'
-                        ? 'bg-green-100 text-green-700'
-                        : copy.status === 'BORROWED'
-                        ? 'bg-blue-100 text-blue-700'
-                        : copy.status === 'RESERVED'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : copy.status === 'LOST'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-orange-100 text-orange-700'
-                    }`}
+                    ${copy.status === 'AVAILABLE'
+                          ? 'bg-green-100 text-green-700'
+                          : copy.status === 'BORROWED'
+                            ? 'bg-blue-100 text-blue-700'
+                            : copy.status === 'RESERVED'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : copy.status === 'LOST'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-orange-100 text-orange-700'
+                        }`}
                     >
                       {copy.status === 'AVAILABLE' && <CheckCircle size={10} />}
                       {copy.status === 'BORROWED' && <Clock size={10} />}
@@ -329,7 +328,7 @@ const CopyList = () => {
               ))}
           </tbody>
         </table>
-        
+
         {/* Pagination Controls */}
         <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-white">
           <span className="text-sm text-slate-500">
@@ -344,7 +343,7 @@ const CopyList = () => {
               >
                 &lt;
               </button>
-              
+
               {/* Pages */}
               {Array.from({ length: totalPages }, (_, i) => i)
                 .filter(p => p >= page - 2 && p <= page + 2)
@@ -352,17 +351,16 @@ const CopyList = () => {
                   <button
                     key={p}
                     onClick={() => handlePageChange(p)}
-                    className={`w-8 h-8 flex items-center justify-center rounded text-sm ${
-                      page === p
+                    className={`w-8 h-8 flex items-center justify-center rounded text-sm ${page === p
                         ? 'bg-secondary text-white'
                         : 'border border-slate-200 hover:bg-slate-50 text-slate-600'
-                    }`}
+                      }`}
                   >
                     {p + 1}
                   </button>
                 ))
               }
-              
+
               <button
                 onClick={() => handlePageChange(page + 1)}
                 disabled={page >= totalPages - 1}

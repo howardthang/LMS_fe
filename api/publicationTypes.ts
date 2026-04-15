@@ -181,3 +181,23 @@ export interface GetPublicationsParams {
   page?: number;
   size?: number;
 }
+
+export interface PublicationItem {
+  id: string;
+  barcode: string;
+  branch: string;
+  shelf: string;
+  status: string;
+  condition: string;
+  dueDate: string | null;
+}
+
+export interface PaginatedPublicationItems {
+  content: PublicationItem[];
+  currentPage: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}

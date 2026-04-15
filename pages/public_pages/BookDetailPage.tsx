@@ -26,10 +26,9 @@ import {
   Badge,
   Button,
   StarRating,
-  StatusIndicator,
 } from '../../components/ui';
 import publicationsService from '../../api/publicationsService';
-import { PublicationDetailResponse } from '../../api/publicationTypes';
+import { PublicationDetailResponse, PaginatedPublicationItems } from '../../api/publicationTypes';
 
 // --- Sub-components for Tabs ---
 
@@ -100,7 +99,7 @@ const OverviewTab = ({ data }: { data: PublicationDetailResponse }) => (
         {data.tags && data.tags.length > 0 && (
           <div className="col-span-2 md:col-span-4 border-t border-gray-200 pt-4 mt-2">
             <span className="block text-xs text-gray-500 uppercase font-semibold mb-2">
-              Từ khóa (Subject Headings)
+              Từ khóa (Tags)
             </span>
             <div className="flex flex-wrap gap-2">
               {data.tags.map((k) => (
@@ -119,129 +118,7 @@ const OverviewTab = ({ data }: { data: PublicationDetailResponse }) => (
   </div>
 );
 
-const ChapterItem = ({ number, title, pages, sections, children }: any) => {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <div className="border-b border-gray-100 last:border-0">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between py-4 text-left hover:bg-gray-50 transition-colors px-4 rounded-lg"
-      >
-        <div className="flex items-center">
-          <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-600 rounded font-bold text-sm mr-4">
-            {number}
-          </span>
-          <div>
-            <h4 className="font-semibold text-gray-900">{title}</h4>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {sections} sections • {pages} trang
-            </p>
-          </div>
-        </div>
-        {isOpen ? (
-          <ChevronDown size={18} className="text-gray-400" />
-        ) : (
-          <ChevronRight size={18} className="text-gray-400" />
-        )}
-      </button>
-      {isOpen && <div className="pl-16 pr-4 pb-4 space-y-3">{children}</div>}
-    </div>
-  );
-};
-
-const TableOfContentsTab = () => (
-  <div className="animate-fade-in">
-    <h3 className="text-xl font-bold text-gray-900 mb-6">Mục lục chi tiết</h3>
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <ChapterItem
-        number="1"
-        title="Giới thiệu Machine Learning"
-        pages="45"
-        sections="4"
-      >
-        <div className="text-sm text-gray-600 flex justify-between group cursor-pointer hover:text-blue-600">
-          <span>
-            <strong>1.1</strong> Machine Learning là gì?
-          </span>
-          <span className="text-gray-400 text-xs">Trang 5</span>
-        </div>
-        <div className="text-sm text-gray-600 flex justify-between group cursor-pointer hover:text-blue-600">
-          <span>
-            <strong>1.2</strong> Phân loại Machine Learning
-          </span>
-          <span className="text-gray-400 text-xs">Trang 12</span>
-        </div>
-        <div className="text-sm text-gray-600 flex justify-between group cursor-pointer hover:text-blue-600">
-          <span>
-            <strong>1.3</strong> Quy trình xây dựng hệ thống ML
-          </span>
-          <span className="text-gray-400 text-xs">Trang 24</span>
-        </div>
-        <div className="text-sm text-gray-600 flex justify-between group cursor-pointer hover:text-blue-600">
-          <span>
-            <strong>1.4</strong> Các thách thức và ứng dụng
-          </span>
-          <span className="text-gray-400 text-xs">Trang 38</span>
-        </div>
-      </ChapterItem>
-      <ChapterItem
-        number="2"
-        title="Đại số tuyến tính cho ML"
-        pages="68"
-        sections="6"
-      >
-        <div className="text-sm text-gray-600">
-          Nội dung chi tiết chương 2...
-        </div>
-      </ChapterItem>
-      <ChapterItem
-        number="3"
-        title="Giải tích và Tối ưu hóa"
-        pages="52"
-        sections="5"
-      >
-        <div className="text-sm text-gray-600">
-          Nội dung chi tiết chương 3...
-        </div>
-      </ChapterItem>
-      <ChapterItem
-        number="4"
-        title="Xác suất và Thống kê"
-        pages="75"
-        sections="8"
-      >
-        <div className="text-sm text-gray-600">
-          Nội dung chi tiết chương 4...
-        </div>
-      </ChapterItem>
-      <ChapterItem number="5" title="Linear Regression" pages="48" sections="4">
-        <div className="text-sm text-gray-600">
-          Nội dung chi tiết chương 5...
-        </div>
-      </ChapterItem>
-      <ChapterItem
-        number="6"
-        title="Logistic Regression & Classification"
-        pages="56"
-        sections="5"
-      >
-        <div className="text-sm text-gray-600">
-          Nội dung chi tiết chương 6...
-        </div>
-      </ChapterItem>
-    </div>
-  </div>
-);
-
-const ReviewBar = ({
-  star,
-  count,
-  total,
-}: {
-  star: number;
-  count: number;
-  total: number;
-}) => {
+const ReviewBar = ({ star, count, total }: { star: number; count: number; total: number }) => {
   const percentage = (count / total) * 100;
   return (
     <div className="flex items-center text-sm mb-2">
@@ -547,6 +424,10 @@ const BookDetailPage = () => {
   const [data, setData] = useState<PublicationDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [itemsData, setItemsData] = useState<PaginatedPublicationItems | null>(null);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [itemsPage, setItemsPage] = useState(0);
+
   useEffect(() => {
     const fetchPublicationDetail = async () => {
       if (!id) return;
@@ -564,6 +445,24 @@ const BookDetailPage = () => {
     };
     fetchPublicationDetail();
   }, [id]);
+
+  useEffect(() => {
+    const fetchItems = async () => {
+      if (!id) return;
+      try {
+        setIsLoadingItems(true);
+        const response = await publicationsService.getPublicationItems(id, itemsPage, 5);
+        if (response.code === 200) {
+          setItemsData(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch items:', error);
+      } finally {
+        setIsLoadingItems(false);
+      }
+    };
+    fetchItems();
+  }, [id, itemsPage]);
 
   if (isLoading) {
     return (
@@ -779,7 +678,7 @@ const BookDetailPage = () => {
                 <Clock size={14} />
               </div>
               <span>
-                <strong>Thông báo:</strong> Có {data.items.totalItems} bản giấy ({data.items.totalAvailableItems} bản khả dụng).
+                <strong>Thông báo:</strong> Có {data.items.totalItems} bản ({data.items.totalAvailableItems} bản khả dụng).
                 {data.items.totalAvailableItems === 0 && data.items.totalItems > 0 && " Hiện đã được mượn hết. Vui lòng đặt trước để giữ chỗ."}
               </span>
             </div>
@@ -789,10 +688,10 @@ const BookDetailPage = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-1/5">
-                      Mã Item
+                      Barcode
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-1/6">
-                      Định dạng
+                      Tình trạng
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-1/4">
                       Vị trí
@@ -806,77 +705,132 @@ const BookDetailPage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {[
-                    {
-                      id: 'ML-2023-001',
-                      loc: 'Thư viện Trung tâm',
-                      sub: 'Kệ A3 - Tầng 2',
-                      status: 'Available',
-                    },
-                    {
-                      id: 'ML-2023-002',
-                      loc: 'Thư viện Trung tâm',
-                      sub: 'Kệ A3 - Tầng 2',
-                      status: 'On Loan',
-                      return: '12/01/2026',
-                    },
-                    {
-                      id: 'ML-2023-003',
-                      loc: 'Thư viện Cơ sở B',
-                      sub: 'Kệ B2 - Tầng 1',
-                      status: 'Available',
-                    },
-                  ].map((item, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 flex items-center">
-                        <Printer size={14} className="mr-2 text-gray-400" />
-                        {item.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                          Print
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="font-medium text-gray-900">
-                          {item.loc}
-                        </div>
-                        <div className="text-xs text-gray-400">{item.sub}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <StatusIndicator status={item.status as any} />
-                        {item.return && (
-                          <div className="text-[10px] text-orange-600 font-medium mt-1 ml-1">
-                            Trả: {item.return}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {item.status === 'Available' ? (
-                          <Button
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 shadow-sm w-24"
-                          >
-                            Đặt trước
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="w-24 text-gray-400 bg-gray-100 border border-gray-200"
-                            disabled
-                          >
-                            Đang mượn
-                          </Button>
-                        )}
+                  {isLoadingItems ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                        Đang tải danh sách bản sao...
                       </td>
                     </tr>
-                  ))}
+                  ) : itemsData?.content && itemsData.content.length > 0 ? (
+                    itemsData.content.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 flex items-center">
+                          <Printer size={14} className="mr-2 text-gray-400" />
+                          {item.barcode}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                            {item.condition || 'Sách in'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="font-medium text-gray-900">
+                            {item.branch}
+                          </div>
+                          <div className="text-xs text-gray-400">{item.shelf}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {item.status === 'AVAILABLE' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                              Có sẵn
+                            </span>
+                          ) : (
+                            <div className="flex flex-col">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 w-fit">
+                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
+                                Đang được mượn
+                              </span>
+                              {item.dueDate && (
+                                <span className="text-[10px] text-gray-500 mt-1 ml-1">
+                                  Trả dự kiến: {new Date(item.dueDate).toLocaleDateString('vi-VN')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          {item.status === 'AVAILABLE' ? (
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 shadow-sm w-28"
+                            >
+                              Mượn ngay
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700 shadow-sm w-28"
+                            >
+                              Đặt trước
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                        Không có bản sao nào
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+              
+              {/* Phân trang danh sách copy */}
+              {itemsData && itemsData.totalPages > 1 && (
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-gray-500 order-2 sm:order-1">
+                    Hiển thị <span className="font-semibold text-gray-900">{itemsData.currentPage * itemsData.pageSize + 1}</span> -{' '}
+                    <span className="font-semibold text-gray-900">
+                      {Math.min((itemsData.currentPage + 1) * itemsData.pageSize, itemsData.totalElements)}
+                    </span>{' '}
+                    trong tổng số <span className="font-semibold text-gray-900">{itemsData.totalElements}</span> bản sao
+                  </div>
+                  
+                  <nav className="inline-flex rounded-md shadow-sm -space-x-px order-1 sm:order-2" aria-label="Pagination">
+                    <button
+                      onClick={() => setItemsPage((prev) => Math.max(0, prev - 1))}
+                      disabled={itemsData.first}
+                      className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                        itemsData.first ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Trước</span>
+                      <ChevronRight className="h-4 w-4 rotate-180" />
+                    </button>
+                    
+                    {Array.from({ length: itemsData.totalPages }, (_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setItemsPage(i)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          itemsData.currentPage === i
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                    
+                    <button
+                      onClick={() => setItemsPage((prev) => prev + 1)}
+                      disabled={itemsData.last}
+                      className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                        itemsData.last ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Sau</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </nav>
+                </div>
+              )}
             </div>
           </div>
 
@@ -885,7 +839,6 @@ const BookDetailPage = () => {
             <div className="flex space-x-8 overflow-x-auto scrollbar-hide">
               {[
                 { id: 'overview', label: 'Tổng quan', icon: AlertCircle },
-                { id: 'toc', label: 'Mục lục chi tiết', icon: List },
                 { id: 'reviews', label: `Đánh giá (${data.ratings.totalRatings})`, icon: Star },
                 { id: 'related', label: 'Sách liên quan', icon: BookOpen },
               ].map((tab) => (
@@ -913,7 +866,6 @@ const BookDetailPage = () => {
           {/* Tab Content */}
           <div className="p-6 md:p-8">
             {activeTab === 'overview' && <OverviewTab data={data} />}
-            {activeTab === 'toc' && <TableOfContentsTab />}
             {activeTab === 'reviews' && <ReviewsTab />}
             {activeTab === 'related' && <RelatedBooksTab />}
           </div>

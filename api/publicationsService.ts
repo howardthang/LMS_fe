@@ -6,6 +6,7 @@ import {
   MostBorrowedPublication,
   NewestPublication,
   PaginatedPublications,
+  PaginatedPublicationItems,
   Publication
 } from './publicationTypes';
 
@@ -146,6 +147,14 @@ const publicationsService = {
     const formData = new FormData();
     formData.append('file', file);
     return axiosInstance.put(`/publications/${id}/cover`, formData);
+  },
+
+  getPublicationItems: async (
+    id: string,
+    page: number = 0,
+    limit: number = 5
+  ): Promise<ApiResponse<PaginatedPublicationItems>> => {
+    return axiosInstance.get(`/publications/${id}/items?page=${page}&limit=${limit}`);
   },
 };
 

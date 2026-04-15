@@ -83,13 +83,13 @@ axiosInstance.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
 
-      // 1403 thường là mã lỗi backend quy định cho token hết hạn
-      const isTokenExpired = status === 401 || (data && (data as any).code === 1403);
+      // Chỉ khi backend trả về mã code 1403 thì mới coi là token hết hạn và cần refresh
+      const isTokenExpired = data && (data as any).code === 1403;
 
       if (isTokenExpired) {
-        // Nếu có refresh token thì mới thử refresh
         const refreshToken = localStorage.getItem('refreshToken');
         
+        // Nếu có refresh token và chưa từng thử retry request này
         if (refreshToken && originalRequest && !originalRequest._retry) {
           if (isRefreshing) {
             return new Promise(function (resolve, reject) {
@@ -110,9 +110,7 @@ axiosInstance.interceptors.response.use(
           isRefreshing = true;
 
           try {
-            const baseURL =
-              import.meta.env.VITE_API_BASE_URL ||
-              'http://localhost:8080/api/v1';
+            const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
             const res = await axios.post(
               `${baseURL}/auth/refresh-accesstoken`,
@@ -143,25 +141,43 @@ axiosInstance.interceptors.response.use(
             }
           } catch (err) {
             processQueue(err, null);
-            // Xóa token nhưng KHÔNG redirect ở đây để component có thể bắt lỗi và hiện message
+            
+            // Refresh thất bại (có thể refreshToken cũng hết hạn)
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('userType');
+            
+            // Redirect về trang login vì phiên đăng nhập đã hỏng hoàn toàn
+            window.location.href = '/#/publicpage/login';
+
             return Promise.reject({
               status,
-              message: (data as any)?.message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+              message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
               data,
             });
           } finally {
             isRefreshing = false;
           }
+        } else if (originalRequest && originalRequest._retry) {
+          // Đã thử retry rồi mà vẫn lỗi 401/1403 -> Token mới cũng không hợp lệ
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userType');
+          window.location.href = '/#/publicpage/login';
+          
+          return Promise.reject({
+            status,
+            message: "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.",
+            data,
+          });
         } else {
-          // Không có refresh token hoặc đã thử retry rồi mà vẫn lỗi
-          // Xóa token nhưng KHÔNG redirect, để component xử lý (ví dụ hiện thông báo yêu cầu đăng nhập)
+          // Không có refresh token (người dùng chưa đăng nhập)
+          // Xóa các token rác nếu có
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('userType');
           
+          // KHÔNG redirect ở đây để component (như BookDetailPage) có thể hiển thị thông báo lỗi tại chỗ
           return Promise.reject({
             status,
             message: (data as any)?.message || "Bạn cần đăng nhập để thực hiện chức năng này.",

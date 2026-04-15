@@ -28,7 +28,7 @@ import {
   StarRating,
 } from '../../components/ui';
 import publicationsService from '../../api/publicationsService';
-import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicationRatings } from '../../api/publicationTypes';
+import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicationRatings, PublicationRatingSummary } from '../../api/publicationTypes';
 
 // --- Sub-components for Tabs ---
 
@@ -139,6 +139,7 @@ const ReviewBar = ({ star, count, total }: { star: number; count: number; total:
 const ReviewsTab = ({
   publicationId,
   ratingsData,
+  summaryData,
   isLoading,
   onPageChange,
   onRefresh,
@@ -147,6 +148,7 @@ const ReviewsTab = ({
 }: {
   publicationId: string;
   ratingsData: PaginatedPublicationRatings | null;
+  summaryData: PublicationRatingSummary | null;
   isLoading: boolean;
   onPageChange: (page: number) => void;
   onRefresh: () => void;
@@ -202,13 +204,21 @@ const ReviewsTab = ({
             </div>
             <p className="text-sm text-gray-500">Dựa trên {totalRatings} đánh giá</p>
           </div>
-          <div>
-            <ReviewBar star={5} count={Math.round(totalRatings * 0.7)} total={totalRatings} />
-            <ReviewBar star={4} count={Math.round(totalRatings * 0.2)} total={totalRatings} />
-            <ReviewBar star={3} count={Math.round(totalRatings * 0.05)} total={totalRatings} />
-            <ReviewBar star={2} count={Math.round(totalRatings * 0.03)} total={totalRatings} />
-            <ReviewBar star={1} count={Math.round(totalRatings * 0.02)} total={totalRatings} />
-          </div>
+          {summaryData ? (
+            <div>
+              <ReviewBar star={5} count={summaryData.fiveStarCount} total={summaryData.totalCount} />
+              <ReviewBar star={4} count={summaryData.fourStarCount} total={summaryData.totalCount} />
+              <ReviewBar star={3} count={summaryData.threeStarCount} total={summaryData.totalCount} />
+              <ReviewBar star={2} count={summaryData.twoStarCount} total={summaryData.totalCount} />
+              <ReviewBar star={1} count={summaryData.oneStarCount} total={summaryData.totalCount} />
+            </div>
+          ) : (
+            <div className="space-y-2 animate-pulse">
+              {[5, 4, 3, 2, 1].map((s) => (
+                <div key={s} className="h-4 bg-gray-200 rounded-full w-full"></div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Write Review */}
@@ -552,6 +562,7 @@ const BookDetailPage = () => {
   const [itemsPage, setItemsPage] = useState(0);
 
   const [ratingsData, setRatingsData] = useState<PaginatedPublicationRatings | null>(null);
+  const [summaryData, setSummaryData] = useState<PublicationRatingSummary | null>(null);
   const [isLoadingRatings, setIsLoadingRatings] = useState(false);
   const [ratingsPage, setRatingsPage] = useState(0);
 
@@ -571,6 +582,21 @@ const BookDetailPage = () => {
       }
     };
     fetchPublicationDetail();
+  }, [id]);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      if (!id) return;
+      try {
+        const response = await publicationsService.getPublicationRatingSummary(id);
+        if (response.code === 200) {
+          setSummaryData(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch rating summary:', error);
+      }
+    };
+    fetchSummary();
   }, [id]);
 
   useEffect(() => {
@@ -1015,26 +1041,34 @@ const BookDetailPage = () => {
               <ReviewsTab
                 publicationId={id || ''}
                 ratingsData={ratingsData}
+                summaryData={summaryData}
                 isLoading={isLoadingRatings}
                 onPageChange={setRatingsPage}
                 onRefresh={() => {
-                  // Re-fetch ratings to show the new one
-                  const fetchRatings = async () => {
+                  // Re-fetch ratings and summary to show new data
+                  const refreshData = async () => {
                     if (!id) return;
                     try {
                       setIsLoadingRatings(true);
-                      const response = await publicationsService.getPublicationRatings(id, 0, 10);
-                      if (response.code === 200) {
-                        setRatingsData(response.data);
+                      const [ratingsRes, summaryRes] = await Promise.all([
+                        publicationsService.getPublicationRatings(id, 0, 10),
+                        publicationsService.getPublicationRatingSummary(id)
+                      ]);
+                      
+                      if (ratingsRes.code === 200) {
+                        setRatingsData(ratingsRes.data);
                         setRatingsPage(0);
                       }
+                      if (summaryRes.code === 200) {
+                        setSummaryData(summaryRes.data);
+                      }
                     } catch (error) {
-                      console.error('Failed to refresh ratings:', error);
+                      console.error('Failed to refresh data:', error);
                     } finally {
                       setIsLoadingRatings(false);
                     }
                   };
-                  fetchRatings();
+                  refreshData();
                 }}
                 averageRating={data.ratings.averageRating}
                 totalRatings={data.ratings.totalRatings}

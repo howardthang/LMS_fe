@@ -8,7 +8,8 @@ import {
   PaginatedPublications,
   PaginatedPublicationItems,
   PaginatedPublicationRatings,
-  Publication
+  Publication,
+  PublicationRatingSummary
 } from './publicationTypes';
 
 const publicationsService = {
@@ -163,6 +164,12 @@ const publicationsService = {
     data: { star: number; comment: string }
   ): Promise<ApiResponse<void>> => {
     return axiosInstance.post(`/publications/${id}/ratings`, data);
+  },
+
+  getPublicationRatingSummary: async (
+    id: string
+  ): Promise<ApiResponse<PublicationRatingSummary>> => {
+    return axiosInstance.get(`/publications/${id}/ratings/summary`);
   },
 };
 

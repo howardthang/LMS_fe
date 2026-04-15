@@ -214,6 +214,15 @@ export interface PaginatedPublicationRatings {
   last: boolean;
 }
 
+export interface PublicationRatingSummary {
+  fiveStarCount: number;
+  fourStarCount: number;
+  threeStarCount: number;
+  twoStarCount: number;
+  oneStarCount: number;
+  totalCount: number;
+}
+
 export interface PaginatedPublicationItems {
   content: PublicationItem[];
   currentPage: number;

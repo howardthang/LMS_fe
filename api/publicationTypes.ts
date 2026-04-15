@@ -192,6 +192,28 @@ export interface PublicationItem {
   dueDate: string | null;
 }
 
+export interface PublicationRating {
+  ratingId: string;
+  star: number;
+  comment: string;
+  helpfulCount: number;
+  fullName: string;
+  profilePictureUrl: string | null;
+  studentId: string;
+  faculty: string;
+  createdAt: string;
+}
+
+export interface PaginatedPublicationRatings {
+  content: PublicationRating[];
+  currentPage: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface PaginatedPublicationItems {
   content: PublicationItem[];
   currentPage: number;

@@ -7,11 +7,11 @@ import {
   NewestPublication,
   PaginatedPublications,
   PaginatedPublicationItems,
+  PaginatedPublicationRatings,
   Publication
 } from './publicationTypes';
 
 const publicationsService = {
-
   getMostBorrowedPublications: async (limit: number = 10): Promise<ApiResponse<MostBorrowedPublication[]>> => {
     return axiosInstance.get(`/publications/most-borrowed?limit=${limit}`);
   },
@@ -23,7 +23,6 @@ const publicationsService = {
   getAllPublications: async (
     params?: GetPublicationsParams
   ): Promise<ApiResponse<PaginatedPublications>> => {
-    // Build query params
     const queryParams = new URLSearchParams();
 
     if (params?.keyword) {
@@ -50,10 +49,7 @@ const publicationsService = {
       queryParams.append('sortDir', params.sortDir);
     }
 
-    // Page mặc định là 0 (page đầu tiên)
     queryParams.append('page', (params?.page ?? 0).toString());
-
-    // Size mặc định là 10
     queryParams.append('size', (params?.size ?? 10).toString());
 
     const queryString = queryParams.toString();
@@ -112,17 +108,14 @@ const publicationsService = {
     return axiosInstance.put(`/publications/${id}`, data);
   },
 
-
   uploadFile: async (
     id: string,
     file: File
   ): Promise<ApiResponse<string>> => {
     const formData = new FormData();
     formData.append('file', file);
-
     return axiosInstance.put(`/publications/${id}/file`, formData);
   },
-
 
   getPublicationById: async (
     id: string
@@ -155,6 +148,21 @@ const publicationsService = {
     limit: number = 5
   ): Promise<ApiResponse<PaginatedPublicationItems>> => {
     return axiosInstance.get(`/publications/${id}/items?page=${page}&limit=${limit}`);
+  },
+
+  getPublicationRatings: async (
+    id: string,
+    page: number = 0,
+    size: number = 10
+  ): Promise<ApiResponse<PaginatedPublicationRatings>> => {
+    return axiosInstance.get(`/publications/${id}/ratings?page=${page}&size=${size}`);
+  },
+
+  createPublicationRating: async (
+    id: string,
+    data: { star: number; comment: string }
+  ): Promise<ApiResponse<void>> => {
+    return axiosInstance.post(`/publications/${id}/ratings`, data);
   },
 };
 

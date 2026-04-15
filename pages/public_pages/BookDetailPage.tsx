@@ -28,7 +28,7 @@ import {
   StarRating,
 } from '../../components/ui';
 import publicationsService from '../../api/publicationsService';
-import { PublicationDetailResponse, PaginatedPublicationItems } from '../../api/publicationTypes';
+import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicationRatings } from '../../api/publicationTypes';
 
 // --- Sub-components for Tabs ---
 
@@ -119,7 +119,7 @@ const OverviewTab = ({ data }: { data: PublicationDetailResponse }) => (
 );
 
 const ReviewBar = ({ star, count, total }: { star: number; count: number; total: number }) => {
-  const percentage = (count / total) * 100;
+  const percentage = (count / total) * 100 || 0;
   return (
     <div className="flex items-center text-sm mb-2">
       <span className="w-12 text-gray-600 font-medium flex items-center">
@@ -136,116 +136,239 @@ const ReviewBar = ({ star, count, total }: { star: number; count: number; total:
   );
 };
 
-const ReviewsTab = () => (
-  <div className="animate-fade-in">
-    <div className="grid md:grid-cols-3 gap-8 mb-10">
-      {/* Stats */}
-      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-        <div className="text-center mb-6">
-          <div className="text-5xl font-bold text-gray-900 mb-2">4.6</div>
-          <div className="flex justify-center mb-2">
-            <StarRating rating={4.6} size={20} />
+const ReviewsTab = ({
+  publicationId,
+  ratingsData,
+  isLoading,
+  onPageChange,
+  onRefresh,
+  averageRating,
+  totalRatings,
+}: {
+  publicationId: string;
+  ratingsData: PaginatedPublicationRatings | null;
+  isLoading: boolean;
+  onPageChange: (page: number) => void;
+  onRefresh: () => void;
+  averageRating: number;
+  totalRatings: number;
+}) => {
+  const [selectedStars, setSelectedStars] = useState(5);
+  const [comment, setComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleSubmit = async () => {
+    if (!comment.trim()) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập nhận xét của bạn.' });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setMessage(null);
+      const response = await publicationsService.createPublicationRating(publicationId, {
+        star: selectedStars,
+        comment: comment.trim(),
+      });
+
+      if (response.code === 200) {
+        setMessage({ type: 'success', text: 'Gửi đánh giá thành công!' });
+        setComment('');
+        setSelectedStars(5);
+        onRefresh();
+      } else {
+        setMessage({ type: 'error', text: response.message || 'Gửi đánh giá thất bại.' });
+      }
+    } catch (error: any) {
+      console.error('Failed to submit rating:', error);
+      // axiosInstance rejects with { status, message, data }
+      const errorMsg = error.message || 'Có lỗi xảy ra khi gửi đánh giá.';
+      setMessage({ type: 'error', text: errorMsg });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <div className="grid md:grid-cols-3 gap-8 mb-10">
+        {/* Stats */}
+        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+          <div className="text-center mb-6">
+            <div className="text-5xl font-bold text-gray-900 mb-2">{averageRating}</div>
+            <div className="flex justify-center mb-2">
+              <StarRating rating={averageRating} size={20} />
+            </div>
+            <p className="text-sm text-gray-500">Dựa trên {totalRatings} đánh giá</p>
           </div>
-          <p className="text-sm text-gray-500">Dựa trên 128 đánh giá</p>
+          <div>
+            <ReviewBar star={5} count={Math.round(totalRatings * 0.7)} total={totalRatings} />
+            <ReviewBar star={4} count={Math.round(totalRatings * 0.2)} total={totalRatings} />
+            <ReviewBar star={3} count={Math.round(totalRatings * 0.05)} total={totalRatings} />
+            <ReviewBar star={2} count={Math.round(totalRatings * 0.03)} total={totalRatings} />
+            <ReviewBar star={1} count={Math.round(totalRatings * 0.02)} total={totalRatings} />
+          </div>
         </div>
-        <div>
-          <ReviewBar star={5} count={83} total={128} />
-          <ReviewBar star={4} count={32} total={128} />
-          <ReviewBar star={3} count={10} total={128} />
-          <ReviewBar star={2} count={2} total={128} />
-          <ReviewBar star={1} count={1} total={128} />
+
+        {/* Write Review */}
+        <div className="md:col-span-2">
+          <h4 className="font-bold text-gray-900 mb-4 flex items-center">
+            <PenTool size={16} className="mr-2 text-blue-600" /> Viết đánh giá của
+            bạn
+          </h4>
+          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            {message && (
+              <div className={`mb-4 p-3 rounded-lg text-sm flex items-center ${
+                message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'
+              }`}>
+                {message.type === 'success' ? <CheckCircle size={16} className="mr-2" /> : <AlertCircle size={16} className="mr-2" />}
+                {message.text}
+              </div>
+            )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Đánh giá của bạn
+              </label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={24}
+                    onClick={() => setSelectedStars(s)}
+                    className={`${
+                      s <= selectedStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
+                    } cursor-pointer transition-colors`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nhận xét
+              </label>
+              <textarea
+                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                rows={4}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Chia sẻ trải nghiệm của bạn về cuốn sách này..."
+              ></textarea>
+            </div>
+            <div className="flex justify-end">
+              <Button 
+                className="flex items-center" 
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                ) : (
+                  <Send size={16} className="mr-2" />
+                )}
+                Gửi đánh giá
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Write Review */}
-      <div className="md:col-span-2">
-        <h4 className="font-bold text-gray-900 mb-4 flex items-center">
-          <PenTool size={16} className="mr-2 text-blue-600" /> Viết đánh giá của
-          bạn
+      {/* Review List */}
+      <div className="space-y-6">
+        <h4 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2">
+          Đánh giá từ cộng đồng
         </h4>
-        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Đánh giá của bạn
-            </label>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Star
-                  key={s}
-                  size={24}
-                  className="text-gray-300 hover:text-yellow-400 cursor-pointer transition-colors"
+        
+        {isLoading ? (
+          <div className="py-12 text-center text-gray-500">Đang tải đánh giá...</div>
+        ) : ratingsData?.content && ratingsData.content.length > 0 ? (
+          <>
+            <div className="space-y-6">
+              {ratingsData.content.map((rating) => (
+                <ReviewItem
+                  key={rating.ratingId}
+                  name={rating.fullName}
+                  studentId={rating.studentId}
+                  faculty={rating.faculty || 'Sinh viên'}
+                  date={new Date(rating.createdAt).toLocaleDateString('vi-VN')}
+                  rating={rating.star}
+                  text={rating.comment}
+                  likes={rating.helpfulCount}
+                  avatar={rating.profilePictureUrl}
                 />
               ))}
             </div>
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nhận xét
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
-              rows={4}
-              placeholder="Chia sẻ trải nghiệm của bạn về cuốn sách này. Nội dung có dễ hiểu không? Bài tập có hữu ích không?"
-            ></textarea>
-          </div>
-          <div className="flex justify-end">
-            <Button className="flex items-center">
-              <Send size={16} className="mr-2" /> Gửi đánh giá
-            </Button>
-          </div>
-        </div>
+
+            {/* Pagination for Ratings */}
+            {ratingsData.totalPages > 1 && (
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 pt-6">
+                <div className="text-sm text-gray-500">
+                  Hiển thị <span className="font-medium text-gray-900">{ratingsData.currentPage * ratingsData.pageSize + 1}</span> -{' '}
+                  <span className="font-medium text-gray-900">
+                    {Math.min((ratingsData.currentPage + 1) * ratingsData.pageSize, ratingsData.totalElements)}
+                  </span>{' '}
+                  trong <span className="font-medium text-gray-900">{ratingsData.totalElements}</span> đánh giá
+                </div>
+                <nav className="inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => onPageChange(Math.max(0, ratingsData.currentPage - 1))}
+                    disabled={ratingsData.first}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                      ratingsData.first ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ChevronRight className="h-4 w-4 rotate-180" />
+                  </button>
+                  {Array.from({ length: ratingsData.totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onPageChange(i)}
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        ratingsData.currentPage === i
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => onPageChange(ratingsData.currentPage + 1)}
+                    disabled={ratingsData.last}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                      ratingsData.last ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </nav>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="py-12 text-center text-gray-500">Chưa có đánh giá nào cho ấn phẩm này.</div>
+        )}
       </div>
     </div>
+  );
+};
 
-    {/* Review List */}
-    <div className="space-y-6">
-      <h4 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2">
-        Đánh giá từ cộng đồng
-      </h4>
-      <ReviewItem
-        name="Nguyễn Minh Tuấn"
-        role="Sinh viên năm 3 - CNTT"
-        date="15/12/2024"
-        rating={5}
-        text="Cuốn sách rất hay và dễ hiểu! Tác giả giải thích các khái niệm phức tạp một cách đơn giản, phù hợp cho người mới bắt đầu. Phần code Python rất chi tiết và có thể chạy được ngay. Đặc biệt thích phần về Neural Networks ở cuối sách."
-        likes={24}
-      />
-      <ReviewItem
-        name="Trần Thị Hương"
-        role="Giảng viên - Khoa CNTT"
-        date="10/12/2024"
-        rating={5}
-        text="Một giáo trình xuất sắc cho sinh viên Việt Nam. Nội dung cập nhật, cách trình bày khoa học. Tôi đã sử dụng làm tài liệu giảng dạy cho môn Machine Learning và sinh viên phản hồi rất tích cực. Đề xuất bổ sung thêm phần Deep Learning trong tái bản sau."
-        likes={18}
-      />
-      <ReviewItem
-        name="Lê Văn Hải"
-        role="Data Analyst"
-        date="05/12/2024"
-        rating={4}
-        text="Sách tốt cho người mới bắt đầu. Phần toán học giải thích khá dễ hiểu. Tuy nhiên mình mong muốn có thêm nhiều ví dụ thực tế hơn từ các dự án thực tế ở Việt Nam. Overall vẫn đáng đọc!"
-        likes={12}
-      />
-    </div>
-
-    <div className="mt-8 text-center">
-      <Button variant="outline">Xem thêm đánh giá</Button>
-    </div>
-  </div>
-);
-
-const ReviewItem = ({ name, role, date, rating, text, likes }: any) => (
+const ReviewItem = ({ name, faculty, date, rating, text, likes, avatar, studentId }: any) => (
   <div className="flex space-x-4 border-b border-gray-100 last:border-0 pb-6">
     <div className="flex-shrink-0">
-      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 font-bold shadow-sm">
-        {name.charAt(0)}
-      </div>
+      {avatar ? (
+        <img src={avatar} alt={name} className="w-10 h-10 rounded-full object-cover shadow-sm" />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 font-bold shadow-sm">
+          {name.charAt(0)}
+        </div>
+      )}
     </div>
     <div className="flex-grow">
       <div className="flex justify-between items-start">
         <div>
           <h4 className="font-bold text-gray-900 text-sm">{name}</h4>
-          <p className="text-xs text-gray-500">{role}</p>
+          <p className="text-xs text-gray-500">{studentId} - {faculty}</p>
         </div>
         <span className="text-xs text-gray-400">{date}</span>
       </div>
@@ -428,6 +551,10 @@ const BookDetailPage = () => {
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [itemsPage, setItemsPage] = useState(0);
 
+  const [ratingsData, setRatingsData] = useState<PaginatedPublicationRatings | null>(null);
+  const [isLoadingRatings, setIsLoadingRatings] = useState(false);
+  const [ratingsPage, setRatingsPage] = useState(0);
+
   useEffect(() => {
     const fetchPublicationDetail = async () => {
       if (!id) return;
@@ -463,6 +590,24 @@ const BookDetailPage = () => {
     };
     fetchItems();
   }, [id, itemsPage]);
+
+  useEffect(() => {
+    const fetchRatings = async () => {
+      if (!id) return;
+      try {
+        setIsLoadingRatings(true);
+        const response = await publicationsService.getPublicationRatings(id, ratingsPage, 10);
+        if (response.code === 200) {
+          setRatingsData(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch ratings:', error);
+      } finally {
+        setIsLoadingRatings(false);
+      }
+    };
+    fetchRatings();
+  }, [id, ratingsPage]);
 
   if (isLoading) {
     return (
@@ -866,7 +1011,35 @@ const BookDetailPage = () => {
           {/* Tab Content */}
           <div className="p-6 md:p-8">
             {activeTab === 'overview' && <OverviewTab data={data} />}
-            {activeTab === 'reviews' && <ReviewsTab />}
+            {activeTab === 'reviews' && (
+              <ReviewsTab
+                publicationId={id || ''}
+                ratingsData={ratingsData}
+                isLoading={isLoadingRatings}
+                onPageChange={setRatingsPage}
+                onRefresh={() => {
+                  // Re-fetch ratings to show the new one
+                  const fetchRatings = async () => {
+                    if (!id) return;
+                    try {
+                      setIsLoadingRatings(true);
+                      const response = await publicationsService.getPublicationRatings(id, 0, 10);
+                      if (response.code === 200) {
+                        setRatingsData(response.data);
+                        setRatingsPage(0);
+                      }
+                    } catch (error) {
+                      console.error('Failed to refresh ratings:', error);
+                    } finally {
+                      setIsLoadingRatings(false);
+                    }
+                  };
+                  fetchRatings();
+                }}
+                averageRating={data.ratings.averageRating}
+                totalRatings={data.ratings.totalRatings}
+              />
+            )}
             {activeTab === 'related' && <RelatedBooksTab />}
           </div>
         </div>

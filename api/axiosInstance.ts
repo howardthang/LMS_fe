@@ -74,9 +74,6 @@ axiosInstance.interceptors.response.use(
       });
     }
 
-    // Trả về trực tiếp phần data thay vì toàn bộ response
-    // Component chỉ cần: const books = await api.get('/books')
-    // Thay vì: const books = (await api.get('/books')).data
     return response.data;
   },
   async (error: AxiosError) => {
@@ -84,14 +81,16 @@ axiosInstance.interceptors.response.use(
 
     // Xử lý lỗi response
     if (error.response) {
-      // Server trả về response với status code lỗi (4xx, 5xx)
       const { status, data } = error.response;
 
+      // 1403 thường là mã lỗi backend quy định cho token hết hạn
       const isTokenExpired = status === 401 || (data && (data as any).code === 1403);
 
       if (isTokenExpired) {
-        // Unauthorized hoặc Token hết hạn -> Tiến hành Refresh
-        if (originalRequest && !originalRequest._retry) {
+        // Nếu có refresh token thì mới thử refresh
+        const refreshToken = localStorage.getItem('refreshToken');
+        
+        if (refreshToken && originalRequest && !originalRequest._retry) {
           if (isRefreshing) {
             return new Promise(function (resolve, reject) {
               failedQueue.push({ resolve, reject });
@@ -110,17 +109,6 @@ axiosInstance.interceptors.response.use(
           originalRequest._retry = true;
           isRefreshing = true;
 
-          const refreshToken = localStorage.getItem('refreshToken');
-          // Nếu không có refresh token thì buộc đăng xuất ngay
-          if (!refreshToken) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('userType');
-            window.location.href = '/#/publicpage/login';
-            window.location.reload();
-            return Promise.reject(error);
-          }
-
           try {
             const baseURL =
               import.meta.env.VITE_API_BASE_URL ||
@@ -132,14 +120,10 @@ axiosInstance.interceptors.response.use(
               {
                 headers: {
                   're-token': refreshToken,
-                  'ngrok-skip-browser-warning': '69420', // Bypass màn hình cảnh báo của ngrok
+                  'ngrok-skip-browser-warning': '69420',
                 },
               }
             );
-
-            if ((res.data && res.data.code === 1403) || res.status === 401) {
-              throw new Error('Refresh token expired (1403)');
-            }
 
             if (res.data && res.data.data) {
               const newAccessToken = res.data.data.accessToken;
@@ -159,62 +143,58 @@ axiosInstance.interceptors.response.use(
             }
           } catch (err) {
             processQueue(err, null);
+            // Xóa token nhưng KHÔNG redirect ở đây để component có thể bắt lỗi và hiện message
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('userType');
-            window.location.href = '/#/publicpage/login';
-            window.location.reload();
-            return Promise.reject(err);
+            return Promise.reject({
+              status,
+              message: (data as any)?.message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+              data,
+            });
           } finally {
             isRefreshing = false;
           }
+        } else {
+          // Không có refresh token hoặc đã thử retry rồi mà vẫn lỗi
+          // Xóa token nhưng KHÔNG redirect, để component xử lý (ví dụ hiện thông báo yêu cầu đăng nhập)
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userType');
+          
+          return Promise.reject({
+            status,
+            message: (data as any)?.message || "Bạn cần đăng nhập để thực hiện chức năng này.",
+            data,
+          });
         }
-
-        // Rớt xuống đây nghĩa là refresh bị sai chính bản thân nó hoặc bị lỗi nặng
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userType');
-        window.location.href = '/#/publicpage/login';
-        window.location.reload();
-        return Promise.reject(error);
       }
 
       switch (status) {
-
         case 403:
-          // Forbidden - Không có quyền truy cập
           console.error("🚫 Forbidden: Không có quyền truy cập");
           break;
-
         case 404:
-          // Not Found
           console.error("🔍 Not Found: Không tìm thấy tài nguyên");
           break;
-
         case 500:
-          // Internal Server Error
           console.error("💥 Server Error: Lỗi server nội bộ");
           break;
-
         default:
           console.error(`❌ Error ${status}:`, data);
       }
 
-      // Trả về error với message từ server hoặc message mặc định
       return Promise.reject({
         status,
         message: (data as any)?.message || "Đã có lỗi xảy ra",
         data,
       });
     } else if (error.request) {
-      // Request được gửi nhưng không nhận được response
       console.error("📡 Network Error: Không kết nối được với server");
       return Promise.reject({
-        message:
-          "Không kết nối được với server. Vui lòng kiểm tra kết nối mạng.",
+        message: "Không kết nối được với server. Vui lòng kiểm tra kết nối mạng.",
       });
     } else {
-      // Lỗi khi setup request
       console.error("⚠️ Request Setup Error:", error.message);
       return Promise.reject({
         message: error.message || "Đã có lỗi xảy ra khi gửi request",

@@ -55,6 +55,14 @@ const authService = {
         're-token': refreshToken
       }
     });
+  },
+
+  forgotPassword: async (email: string): Promise<any> => {
+    return axiosInstance.post('/auth/forgot-password', { email });
+  },
+
+  resetPassword: async (data: any): Promise<any> => {
+    return axiosInstance.post('/auth/reset-password', data);
   }
 };
 

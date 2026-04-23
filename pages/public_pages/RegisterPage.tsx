@@ -56,7 +56,7 @@ const RegisterPage = () => {
       console.log(response);
       if (response && response.code === 200) {
         alert(response.message || 'Đăng ký thành công!');
-        navigate('/publicpage/login');
+        navigate('/publicpage/check-email');
       } else {
         alert(response?.message || 'Đăng ký thất bại, vui lòng thử lại.');
       }

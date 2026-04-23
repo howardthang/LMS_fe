@@ -24,6 +24,10 @@ import HomePage from './pages/public_pages/HomePage';
 import LoginPage from './pages/public_pages/LoginPage';
 import PrivacyPolicyPage from './pages/public_pages/PrivacyPolicyPage';
 import RegisterPage from './pages/public_pages/RegisterPage';
+import CheckEmailPage from './pages/public_pages/CheckEmailPage';
+import VerificationSuccessPage from './pages/public_pages/VerificationSuccessPage';
+import ForgotPasswordPage from './pages/public_pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/public_pages/ResetPasswordPage';
 import OnboardingPage from './pages/public_pages/OnboardingPage';
 import PublicSearchPage from './pages/public_pages/SearchPage';
 import ServiceTermsPage from './pages/public_pages/ServiceTermsPage';
@@ -138,6 +142,10 @@ const AppContent = () => {
   const isAuthPage =
     location.pathname === `${PUBLIC_PREFIX}/login` ||
     location.pathname === `${PUBLIC_PREFIX}/register` ||
+    location.pathname === `${PUBLIC_PREFIX}/check-email` ||
+    location.pathname === `${PUBLIC_PREFIX}/verify-success` ||
+    location.pathname === `${PUBLIC_PREFIX}/forgot-password` ||
+    location.pathname === `${PUBLIC_PREFIX}/reset-password` ||
     location.pathname === `${PUBLIC_PREFIX}/onboarding`;
 
   // List of paths that use the user protected layout
@@ -203,6 +211,10 @@ const AppContent = () => {
       <Routes>
         <Route path={`${PUBLIC_PREFIX}/login`} element={<LoginPage />} />
         <Route path={`${PUBLIC_PREFIX}/register`} element={<RegisterPage />} />
+        <Route path={`${PUBLIC_PREFIX}/check-email`} element={<CheckEmailPage />} />
+        <Route path={`${PUBLIC_PREFIX}/verify-success`} element={<VerificationSuccessPage />} />
+        <Route path={`${PUBLIC_PREFIX}/forgot-password`} element={<ForgotPasswordPage />} />
+        <Route path={`${PUBLIC_PREFIX}/reset-password`} element={<ResetPasswordPage />} />
         <Route path={`${PUBLIC_PREFIX}/onboarding`} element={<OnboardingPage />} />
       </Routes>
     );

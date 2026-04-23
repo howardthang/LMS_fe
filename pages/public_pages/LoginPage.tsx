@@ -1,8 +1,8 @@
 import { CheckCircle, Lock, User } from 'lucide-react';
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '../../components/public_pages/Layout';
-import { Button } from '../../components/ui';
+import { Button, Input } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import authService from '../../api/authService';
 import { log } from 'console';
@@ -10,13 +10,11 @@ import { log } from 'console';
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const usernameRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const username = usernameRef.current?.value || '';
-    const password = passwordRef.current?.value || '';
 
     try {
       // Gọi API đăng nhập và lưu tokens, lấy về role decoded từ JWT
@@ -57,57 +55,30 @@ const LoginPage = () => {
             onSubmit={handleLogin}
             className="space-y-6 max-w-sm mx-auto w-full"
           >
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email / Mã sinh viên
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <User size={18} />
-                </div>
-                <input
-                  ref={usernameRef}
-                  type="text"
-                  placeholder="Nhập email hoặc mã sinh viên (student/librarian)"
-                  defaultValue="student"
-                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mật khẩu
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <Lock size={18} />
-                </div>
-                <input
-                  ref={passwordRef}
-                  type="password"
-                  placeholder="Nhập mật khẩu"
-                  defaultValue="password"
-                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-            </div>
+            <Input
+              label="Email"
+              icon={<User size={18} />}
+              type="text"
+              placeholder="Ví dụ: student@hcmut.edu.vn"
+              value={username}
+              onChange={(e: any) => setUsername(e.target.value)}
+            />
+            <Input
+              label="Mật khẩu"
+              icon={<Lock size={18} />}
+              type="password"
+              placeholder="Nhập mật khẩu"
+              value={password}
+              onChange={(e: any) => setPassword(e.target.value)}
+            />
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-600">
-                  Ghi nhớ đăng nhập
-                </span>
-              </label>
-              <a
-                href="#"
+            <div className="flex items-center justify-end">
+              <Link
+                to="/publicpage/forgot-password"
                 className="text-sm font-medium text-blue-600 hover:text-blue-500"
               >
                 Quên mật khẩu?
-              </a>
+              </Link>
             </div>
 
             <Button fullWidth size="lg" type="submit">

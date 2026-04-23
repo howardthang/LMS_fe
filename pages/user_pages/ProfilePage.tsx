@@ -2,7 +2,7 @@ import {
   Bell, Edit2, Lock, Save, User, Image as ImageIcon,
   Hash, Mail, CreditCard, GraduationCap, Shield, Award, Camera
 } from 'lucide-react';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, DatePickerField } from '../../components/ui';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import usersService, { UserProfileResponse } from '../../api/usersService';
@@ -277,13 +277,11 @@ const ProfilePage = () => {
                 disabled={!isEditing || isSaving}
                 className={!isEditing ? "bg-gray-50" : ""}
               />
-              <Input
+              <DatePickerField
                 label="Ngày sinh"
-                type="date"
                 value={editData.dateOfBirth}
-                onChange={(e: any) => setEditData({ ...editData, dateOfBirth: e.target.value })}
+                onChange={(val) => setEditData({ ...editData, dateOfBirth: val })}
                 disabled={!isEditing || isSaving}
-                className={!isEditing ? "bg-gray-50" : ""}
               />
               <Input
                 label="Địa chỉ"

@@ -1,5 +1,10 @@
-import React from 'react';
-import { Star, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, CheckCircle, AlertCircle, Calendar as CalendarIcon, Eye, EyeOff } from 'lucide-react';
+import { format, parse, isValid } from 'date-fns';
+import { vi } from 'date-fns/locale/vi';
+import { DayPicker } from 'react-day-picker';
+import * as Popover from '@radix-ui/react-popover';
+import 'react-day-picker/dist/style.css';
 
 // --- Badge ---
 interface BadgeProps {
@@ -91,19 +96,32 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input: React.FC<InputProps> = ({ label, icon, className = '', ...props }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = props.type === 'password';
+
   return (
     <div className="w-full">
       {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
-      <div className="relative">
+      <div className="relative flex items-center">
         {icon && (
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
             {icon}
           </div>
         )}
         <input
-          className={`block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${icon ? 'pl-10' : ''} ${className}`}
+          className={`block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${icon ? 'pl-10' : ''} ${isPassword ? 'pr-10' : ''} ${className}`}
           {...props}
+          type={isPassword ? (showPassword ? 'text' : 'password') : props.type}
         />
+        {isPassword && (
+          <button
+            type="button"
+            className="absolute right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -124,5 +142,95 @@ export const StatusIndicator: React.FC<{ status: 'Available' | 'On Loan' }> = ({
       <AlertCircle size={12} className="mr-1" />
       On Loan
     </span>
+  );
+};
+
+// --- DatePickerField ---
+export const DatePickerField: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+  label?: string;
+  disabled?: boolean;
+}> = ({ value, onChange, label, disabled }) => {
+  const [inputValue, setInputValue] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (value) {
+      const d = new Date(value);
+      if (isValid(d)) setInputValue(format(d, "dd/MM/yyyy"));
+    } else {
+      setInputValue("");
+    }
+  }, [value]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+    const parsed = parse(e.target.value, "dd/MM/yyyy", new Date());
+    if (isValid(parsed) && e.target.value.length === 10) {
+      onChange(format(parsed, "yyyy-MM-dd"));
+    }
+  };
+
+  const handleSelect = (date: Date | undefined) => {
+    if (date) {
+      onChange(format(date, "yyyy-MM-dd"));
+    } else {
+      onChange("");
+    }
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="w-full">
+      {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+      <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
+        <div className="relative flex items-center">
+          <input
+            type="text"
+            placeholder="dd/mm/yyyy"
+            value={inputValue}
+            onChange={handleInputChange}
+            disabled={disabled}
+            className={`block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-10 ${
+              disabled ? "bg-gray-50 text-gray-500" : "bg-white"
+            }`}
+          />
+          <Popover.Trigger asChild>
+            <button
+              type="button"
+              disabled={disabled}
+              className="absolute right-2 p-1 text-gray-400 hover:text-gray-600 focus:outline-none disabled:opacity-50"
+            >
+              <CalendarIcon size={18} />
+            </button>
+          </Popover.Trigger>
+        </div>
+        <Popover.Portal>
+          <Popover.Content
+            className="z-50 bg-white rounded-md shadow-xl border border-gray-200 p-3 mt-1"
+            align="start"
+          >
+            <DayPicker
+              mode="single"
+              selected={value ? new Date(value) : undefined}
+              onSelect={handleSelect}
+              locale={vi}
+              captionLayout="dropdown"
+              startMonth={new Date(1900, 0)}
+              endMonth={new Date()}
+              styles={{
+                caption: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
+                head_cell: { color: '#6b7280', fontWeight: 500, fontSize: '0.875rem' },
+                cell: { padding: '0.2rem' },
+                day: { borderRadius: '0.375rem', width: '2.5rem', height: '2.5rem' },
+                day_selected: { backgroundColor: '#2563eb', color: 'white', fontWeight: 'bold' },
+                day_today: { fontWeight: 'bold', color: '#2563eb' }
+              }}
+            />
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+    </div>
   );
 };

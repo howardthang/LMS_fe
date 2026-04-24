@@ -191,104 +191,327 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Chart Section - Actual API rendering */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="font-bold text-lg text-slate-800">
-              Xu hướng Mượn / Trả
-            </h2>
-            <select 
-              className="text-sm border-slate-200 border rounded-lg px-2 py-1 outline-none text-slate-600 focus:ring-blue-500 focus:border-blue-500"
-              value={chartPeriod}
-              onChange={(e: any) => setChartPeriod(e.target.value)}
-            >
-              <option value="WEEKLY">Chi tiết 7 ngày qua</option>
-              {/* Other options mocked down for API call */}
-            </select>
-          </div>
-
-          <div className="h-64 flex items-end justify-between gap-4 px-2 mt-8">
-            {charts?.weeklyBorrowReturnTrend?.map((d, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
-                 {/* Mượn - Cột Xanh Blue */}
-                 <div className="w-full flex items-end gap-1 h-full relative">
-                   <div className="w-1/2 bg-blue-400 hover:bg-blue-600 transition-all rounded-t-sm relative group" style={{ height: `${(d.borrowed / maxBorrow) * 100}%`, minHeight: '4px' }}>
-                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden md:block">
-                       Mượn: {d.borrowed}
-                     </div>
-                   </div>
-                   {/* Trả - Cột Tím Indigo */}
-                   <div className="w-1/2 bg-indigo-300 hover:bg-indigo-500 transition-all rounded-t-sm relative group" style={{ height: `${(d.returned / maxBorrow) * 100}%`, minHeight: '4px' }}>
-                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden md:block">
-                       Trả: {d.returned}
-                     </div>
-                   </div>
-                 </div>
-                 {/* Date Label (shortened) */}
-                 <span className="text-[10px] md:text-xs text-slate-500 whitespace-nowrap">
-                   {d.date.substring(5).replace('-', '/')}
-                 </span>
+      {/* Group 3: Độc giả rủi ro cao */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center">
+            <ShieldAlert size={20} className="mr-2 text-rose-600" /> Độc giả cần lưu ý (Rủi ro cao)
+          </h2>
+          <Link to="/librarian/users" className="text-sm text-blue-600 hover:underline font-medium flex items-center gap-1">
+            Xem tất cả độc giả <ArrowRight size={14} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          {riskyUsers.length === 0 ? (
+            <div className="col-span-full bg-slate-50 border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500">
+              Hiện tại không có độc giả nào nằm trong danh sách cảnh báo.
+            </div>
+          ) : (
+            riskyUsers.map((user) => (
+              <div key={user.userId} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-rose-200 hover:shadow-md transition-all">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
+                    {user.profilePictureUrl ? <img src={user.profilePictureUrl} className="w-full h-full object-cover" alt=""/> : <span className="font-bold text-slate-400">{user.fullName.charAt(0)}</span>}
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="text-sm font-bold text-slate-800 truncate">{user.fullName}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Điểm uy tín</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${user.creditScore < 50 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {user.creditScore}
+                  </span>
+                </div>
+                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-500">Quá hạn:</span>
+                    <span className="font-bold text-rose-600">{user.riskyMetrics.overdueCount} lần</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-500">Sự cố sách:</span>
+                    <span className="font-bold text-slate-700">{user.riskyMetrics.damagedCount} lần</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-500">Nợ phạt:</span>
+                    <span className="font-bold text-amber-600">{user.riskyMetrics.totalUnpaidAmount.toLocaleString()}đ</span>
+                  </div>
+                </div>
               </div>
-            ))}
-            {(!charts?.weeklyBorrowReturnTrend || charts.weeklyBorrowReturnTrend.length === 0) && (
-              <div className="w-full h-full flex justify-center items-center text-gray-400">Không có dữ liệu biểu đồ</div>
-            )}
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Group 4: Phân tích & Thống kê */}
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Báo cáo phân tích dữ liệu</h2>
+            <p className="text-sm text-slate-500">Thống kê hiệu suất và phân bổ tài nguyên theo giai đoạn</p>
           </div>
-          <div className="flex justify-center gap-6 mt-6 border-t border-slate-100 pt-4">
-             <div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-400 rounded-sm"></div><span className="text-xs text-slate-600">Sách được mượn</span></div>
-             <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-300 rounded-sm"></div><span className="text-xs text-slate-600">Sách trả về</span></div>
+          
+          <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+            {[
+              { id: 'WEEKLY', label: '7 ngày' },
+              { id: 'MONTHLY', label: '30 ngày' },
+              { id: 'SIX_MONTHS', label: '6 tháng' },
+              { id: 'YEARLY', label: '1 năm' }
+            ].map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setChartPeriod(p.id as any)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                  chartPeriod === p.id 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Risky Users Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h2 className="font-bold text-rose-700 flex items-center">
-              <ShieldAlert size={18} className="mr-2" /> Độc giả rủi ro cao
-            </h2>
-            <Link
-              to="/librarian/users"
-              className="text-xs text-blue-600 font-medium hover:underline"
-            >
-              Quản lý
-            </Link>
-          </div>
-          <div className="divide-y divide-slate-100 flex-1 overflow-y-auto">
-            {riskyUsers.length === 0 ? (
-               <div className="p-6 text-center text-slate-500">
-                 Không có độc giả nào vượt mức cảnh báo.
-               </div>
-            ) : (
-              riskyUsers.map((user, i) => (
-                <div key={user.userId} className="p-4 flex flex-col gap-2 hover:bg-slate-50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-500 font-bold overflow-hidden border border-slate-300">
-                         {user.profilePictureUrl ? <img src={user.profilePictureUrl} className="w-full h-full object-cover"/> : user.fullName.charAt(0)}
+        <div className="space-y-8">
+          {/* Row 1: Full Width Trend Chart */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col w-full">
+            <div className="mb-6">
+              <h3 className="font-bold text-slate-800 text-lg">Xu hướng Mượn / Trả</h3>
+              <p className="text-sm text-slate-500">Dữ liệu biến động chi tiết trong {chartPeriod === 'WEEKLY' ? '7 ngày' : chartPeriod === 'MONTHLY' ? '30 ngày' : chartPeriod === 'SIX_MONTHS' ? '6 tháng' : '1 năm'} qua</p>
+            </div>
+
+            <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar">
+              <div 
+                className="h-72 flex items-end justify-between px-2 mt-4 min-w-[600px] lg:min-w-0"
+                style={{ gap: chartPeriod === 'MONTHLY' || chartPeriod === 'YEARLY' ? '4px' : '12px' }}
+              >
+                {charts?.weeklyBorrowReturnTrend?.map((d, i) => {
+                  const showLabel = 
+                    chartPeriod === 'WEEKLY' || 
+                    (chartPeriod === 'MONTHLY' && i % 5 === 0) || 
+                    (chartPeriod === 'SIX_MONTHS') ||
+                    (chartPeriod === 'YEARLY' && i % 2 === 0) ||
+                    i === (charts?.weeklyBorrowReturnTrend?.length || 0) - 1;
+
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
+                      <div className="w-full flex items-end gap-px h-full relative">
+                        <div className="w-1/2 bg-blue-400 hover:bg-blue-600 transition-all rounded-t-[2px] relative group" style={{ height: `${(d.borrowed / maxBorrow) * 100}%`, minHeight: '2px' }}>
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden md:block whitespace-nowrap shadow-lg">
+                            Mượn: {d.borrowed} ({d.date})
+                          </div>
+                        </div>
+                        <div className="w-1/2 bg-indigo-300 hover:bg-indigo-500 transition-all rounded-t-[2px] relative group" style={{ height: `${(d.returned / maxBorrow) * 100}%`, minHeight: '2px' }}>
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden md:block whitespace-nowrap shadow-lg">
+                            Trả: {d.returned} ({d.date})
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">{user.fullName}</p>
-                        <p className="text-xs text-slate-500">{user.email}</p>
+                      <div className="h-6 flex items-start justify-center">
+                        {showLabel && (
+                          <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap">
+                            {chartPeriod === 'WEEKLY' || chartPeriod === 'MONTHLY' 
+                              ? d.date.substring(8) 
+                              : d.date.substring(5)}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                      Điểm: {user.creditScore}
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex justify-center gap-8 mt-6 border-t border-slate-100 pt-6">
+              <div className="flex items-center gap-3"><div className="w-4 h-4 bg-blue-400 rounded-sm"></div><span className="text-sm font-medium text-slate-600">Sách được mượn</span></div>
+              <div className="flex items-center gap-3"><div className="w-4 h-4 bg-indigo-300 rounded-sm"></div><span className="text-sm font-medium text-slate-600">Sách trả về</span></div>
+            </div>
+          </div>
+
+          {/* Row 2: Secondary Charts Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Top Borrowed Publications */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <div className="mb-6">
+                <h3 className="font-bold text-slate-800">Sách mượn nhiều nhất</h3>
+                <p className="text-xs text-slate-500">Top 5 đầu sách trong {chartPeriod === 'WEEKLY' ? '7 ngày' : chartPeriod === 'MONTHLY' ? '30 ngày' : chartPeriod === 'SIX_MONTHS' ? '6 tháng' : '1 năm'} qua</p>
+              </div>
+              <div className="space-y-5">
+                {charts?.topBorrowedPublications.map((pub, i) => {
+                  const maxCount = charts.topBorrowedPublications[0]?.borrowCount || 1;
+                  return (
+                    <div key={pub.publicationId} className="space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-medium text-slate-700 truncate max-w-[180px]" title={pub.title}>{pub.title}</span>
+                        <span className="text-slate-500 font-bold">{pub.borrowCount} lượt</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-blue-500 h-full rounded-full transition-all duration-1000" 
+                          style={{ width: `${(pub.borrowCount / maxCount) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {(!charts?.topBorrowedPublications || charts.topBorrowedPublications.length === 0) && (
+                  <div className="py-10 text-center text-slate-400 text-sm">Chưa có dữ liệu mượn sách</div>
+                )}
+              </div>
+            </div>
+
+            {/* Item Status Distribution */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <div className="mb-6">
+                <h3 className="font-bold text-slate-800">Trạng thái bản sao</h3>
+                <p className="text-xs text-slate-500">Dữ liệu thực tế tại thời điểm hiện tại</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="relative w-40 h-40">
+                  <svg className="w-full h-full" viewBox="0 0 36 36">
+                    {(() => {
+                      const data = charts?.itemStatusDistribution || { available: 0, borrowed: 0, reserved: 0, inMaintenance: 0, lost: 0 };
+                      const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
+                      let cumulativePercent = 0;
+                      
+                      const colors = {
+                        available: '#10b981', 
+                        borrowed: '#3b82f6',  
+                        reserved: '#f59e0b',  
+                        inMaintenance: '#6366f1', 
+                        lost: '#ef4444'      
+                      };
+
+                      return Object.entries(data).map(([key, value]) => {
+                        const percent = (value / total) * 100;
+                        if (percent === 0) return null;
+                        const strokeDasharray = `${percent} ${100 - percent}`;
+                        const strokeDashoffset = -cumulativePercent;
+                        cumulativePercent += percent;
+                        
+                        return (
+                          <circle
+                            key={key}
+                            cx="18"
+                            cy="18"
+                            r="15.915"
+                            fill="transparent"
+                            stroke={colors[key as keyof typeof colors]}
+                            strokeWidth="4"
+                            strokeDasharray={strokeDasharray}
+                            strokeDashoffset={strokeDashoffset}
+                            className="transition-all duration-500"
+                          />
+                        );
+                      });
+                    })()}
+                    <circle cx="18" cy="18" r="12" fill="white" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-bold text-slate-800">
+                      {Object.values(charts?.itemStatusDistribution || {}).reduce((a, b) => a + b, 0)}
                     </span>
-                  </div>
-                  <div className="pl-11 grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-600 mt-1">
-                    <p>Quá hạn: <strong className="text-rose-600">{user.riskyMetrics.overdueCount}</strong></p>
-                    <p>Làm hỏng/mất: <strong>{user.riskyMetrics.damagedCount}</strong></p>
-                    <p className="col-span-2">Nợ phạt: <strong className="text-amber-600">{user.riskyMetrics.totalUnpaidAmount.toLocaleString()} VNĐ</strong> ({user.riskyMetrics.unpaidFineCount} đơn)</p>
+                    <span className="text-[8px] text-slate-500 uppercase font-medium text-center leading-tight">Tổng<br/>bản sao</span>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-          <div className="p-3 border-t border-slate-100 bg-slate-50 mt-auto">
-            <Link to="/librarian/users" className="w-full py-1 text-sm text-slate-600 font-medium hover:text-blue-600 flex items-center justify-center gap-1">
-              Xem toàn bộ danh sách <ArrowRight size={14} />
-            </Link>
+                
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-6 w-full">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                    <span className="text-[11px] text-slate-600 truncate">Sẵn sàng ({charts?.itemStatusDistribution.available})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+                    <span className="text-[11px] text-slate-600 truncate">Đang mượn ({charts?.itemStatusDistribution.borrowed})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                    <span className="text-[11px] text-slate-600 truncate">Đặt trước ({charts?.itemStatusDistribution.reserved})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
+                    <span className="text-[11px] text-slate-600 truncate">Bảo trì ({charts?.itemStatusDistribution.inMaintenance})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                    <span className="text-[11px] text-slate-600 truncate">Đã mất ({charts?.itemStatusDistribution.lost})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fine Type Distribution */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <div className="mb-6">
+                <h3 className="font-bold text-slate-800">Phân bổ vi phạm</h3>
+                <p className="text-xs text-slate-500">Thống kê trong {chartPeriod === 'WEEKLY' ? '7 ngày' : chartPeriod === 'MONTHLY' ? '30 ngày' : chartPeriod === 'SIX_MONTHS' ? '6 tháng' : '1 năm'} qua</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="relative w-40 h-40">
+                  <svg className="w-full h-full" viewBox="0 0 36 36">
+                    {(() => {
+                      const data = charts?.fineTypeDistribution || { overdueReturn: 0, damagedBook: 0, lostBook: 0 };
+                      const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
+                      let cumulativePercent = 0;
+                      
+                      const colors = {
+                        overdueReturn: '#f59e0b',
+                        damagedBook: '#f97316',
+                        lostBook: '#ef4444'
+                      };
+
+                      return Object.entries(data).map(([key, value]) => {
+                        const percent = (value / total) * 100;
+                        if (percent === 0) return null;
+                        const strokeDasharray = `${percent} ${100 - percent}`;
+                        const strokeDashoffset = -cumulativePercent;
+                        cumulativePercent += percent;
+                        
+                        return (
+                          <circle
+                            key={key}
+                            cx="18"
+                            cy="18"
+                            r="15.915"
+                            fill="transparent"
+                            stroke={colors[key as keyof typeof colors]}
+                            strokeWidth="8"
+                            strokeDasharray={strokeDasharray}
+                            strokeDashoffset={strokeDashoffset}
+                            className="transition-all duration-500"
+                          />
+                        );
+                      });
+                    })()}
+                  </svg>
+                </div>
+                
+                <div className="space-y-3 mt-8 w-full">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                      <span className="text-xs text-slate-600">Trả trễ</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">{charts?.fineTypeDistribution.overdueReturn}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                      <span className="text-xs text-slate-600">Làm hỏng sách</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">{charts?.fineTypeDistribution.damagedBook}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      <span className="text-xs text-slate-600">Làm mất sách</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">{charts?.fineTypeDistribution.lostBook}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

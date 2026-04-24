@@ -62,7 +62,8 @@ export interface DashboardChartsResponse {
 }
 
 export interface RiskyUser {
-  userId: string;
+  userId: number;
+  studentId: string | null;
   fullName: string;
   email: string;
   phoneNumber: string | null;
@@ -97,8 +98,8 @@ const librarianDashboardService = {
   getCharts: async (period: 'WEEKLY' | 'MONTHLY' | 'SIX_MONTHS' | 'YEARLY' = 'WEEKLY'): Promise<DashboardChartsResponse> => {
     return axiosInstance.get(`/librarians/dashboard/charts?period=${period}`);
   },
-  getRiskyUsers: async (page = 0, size = 20): Promise<RiskyUsersResponse> => {
-    return axiosInstance.get(`/librarians/dashboard/risky-users?page=${page}&size=${size}&sortBy=creditScore&sortDir=ASC`);
+  getRiskyUsers: async (page = 0, size = 5, sortBy = 'creditScore', sortDir = 'ASC'): Promise<RiskyUsersResponse> => {
+    return axiosInstance.get(`/librarians/dashboard/risky-users?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
   }
 };
 

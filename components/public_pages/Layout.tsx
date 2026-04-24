@@ -2,10 +2,13 @@ import { Bell, BookOpen, Mail, MapPin, Menu, Phone, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '../ui';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { userType } = useAuth();
+  const isAuthenticated = !!userType;
 
   const isActive = (path: string) =>
     location.pathname === path
@@ -65,14 +68,22 @@ export const Header = () => {
               <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
             </button>
             <div className="h-6 w-px bg-gray-300"></div>
-            <Link to="/publicpage/login">
-              <Button variant="ghost" size="sm">
-                Đăng nhập
-              </Button>
-            </Link>
-            <Link to="/publicpage/register">
-              <Button size="sm">Đăng ký</Button>
-            </Link>
+            {isAuthenticated ? (
+              <Link to={userType === 'librarian' ? '/librarian/dashboard' : '/userpage/dashboard'}>
+                <Button size="sm">Vào Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/publicpage/login">
+                  <Button variant="ghost" size="sm">
+                    Đăng nhập
+                  </Button>
+                </Link>
+                <Link to="/publicpage/register">
+                  <Button size="sm">Đăng ký</Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -103,18 +114,29 @@ export const Header = () => {
             >
               Tìm kiếm
             </Link>
-            <Link
-              to="/publicpage/login"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50"
-            >
-              Đăng nhập
-            </Link>
-            <Link
-              to="/publicpage/register"
-              className="block px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-blue-50"
-            >
-              Đăng ký
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to={userType === 'librarian' ? '/librarian/dashboard' : '/userpage/dashboard'}
+                className="block px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-blue-50"
+              >
+                Vào Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/publicpage/login"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Đăng nhập
+                </Link>
+                <Link
+                  to="/publicpage/register"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-blue-50"
+                >
+                  Đăng ký
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -55,7 +55,7 @@ const Sidebar = () => {
     <div className="w-64 h-screen bg-white border-r border-slate-200 flex flex-col fixed left-0 top-0 z-50">
       {/* Logo Area */}
       <Link
-        to="/librarian/dashboard"
+        to="/publicpage"
         className="p-6 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
       >
         <div className="bg-blue-600 p-2 rounded-lg">

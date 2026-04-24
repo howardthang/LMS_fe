@@ -11,19 +11,20 @@ export interface DashboardSummaryResponse {
       totalItems: number;
       availableItems: number;
     };
-    todayActivity: {
+    todayTransaction: {
       borrowedToday: number;
       returnedToday: number;
       damagedToday: number;
-      overdueCount: number;
+      lostToday: number;
+      newlyOverdueToday: number;
     };
     pendingActions: {
       waitingForPickup: number;
       overdueTransactions: number;
       reservationsPending: number;
     };
-    fines: {
-      totalUnpaid: number;
+    fineSummary: {
+      unpaidFineCount: number;
       totalUnpaidAmount: number;
       collectedToday: number;
     };

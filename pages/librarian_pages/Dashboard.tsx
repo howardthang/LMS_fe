@@ -70,63 +70,123 @@ const Dashboard = () => {
         <p className="text-slate-500">Giám sát tài nguyên thư viện và hoạt động độc giả</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500 uppercase">
-              Tổng số bản sao (Items)
-            </p>
-            <h3 className="text-3xl font-bold text-slate-900 mt-2">{summary?.overview.totalItems?.toLocaleString() || 0}</h3>
-            <p className="text-xs text-slate-500 flex items-center gap-1 mt-2">
-              <BookOpen size={14} /> Thuộc {summary?.overview.totalPublications?.toLocaleString() || 0} đầu sách
-            </p>
+      {/* Group 1: Tài nguyên & Độc giả */}
+      <div>
+        <h2 className="text-lg font-bold text-slate-800 mb-4">Tài nguyên & Độc giả</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Card 1: Đầu sách */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Tổng đầu sách</p>
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><BookOpen size={20} /></div>
+            </div>
+            <h3 className="text-3xl font-bold text-slate-900">{summary?.overview.totalPublications?.toLocaleString() || 0}</h3>
           </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-            <BookOpen size={24} />
+
+          {/* Card 2: Bản sao */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Bản sao (Items)</p>
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><BookOpen size={20} /></div>
+            </div>
+            <h3 className="text-3xl font-bold text-indigo-600">{summary?.overview.availableItems?.toLocaleString() || 0} <span className="text-sm text-slate-400 font-normal">/ {summary?.overview.totalItems?.toLocaleString() || 0} sẵn sàng</span></h3>
+          </div>
+
+          {/* Card 3: Độc giả */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Độc giả</p>
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Users size={20} /></div>
+            </div>
+            <h3 className="text-3xl font-bold text-emerald-600">{summary?.overview.activeUsers?.toLocaleString() || 0} <span className="text-sm text-slate-400 font-normal">/ {summary?.overview.totalUsers?.toLocaleString() || 0} active</span></h3>
+          </div>
+
+          {/* Card 4: Tiền phạt */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Nợ tiền phạt</p>
+              <div className="p-2 bg-rose-50 text-rose-600 rounded-lg"><AlertTriangle size={20} /></div>
+            </div>
+            <h3 className="text-2xl font-bold text-rose-600">{summary?.fineSummary.totalUnpaidAmount?.toLocaleString() || 0}đ</h3>
+            <p className="text-xs text-slate-500 mt-1">{summary?.fineSummary.unpaidFineCount || 0} đơn chưa thu (Thu hôm nay: {summary?.fineSummary.collectedToday?.toLocaleString() || 0}đ)</p>
           </div>
         </div>
+      </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500 uppercase">
-              Đang phân bổ / mượn
-            </p>
-            <h3 className="text-3xl font-bold text-indigo-600 mt-2">{charts?.itemStatusDistribution.borrowed?.toLocaleString() || 0}</h3>
-            <p className="text-xs text-indigo-500 mt-2 font-medium">Hôm nay: mượn {summary?.todayActivity.borrowedToday} / trả {summary?.todayActivity.returnedToday}</p>
+      {/* Group 2: Hoạt động & Tác vụ */}
+      <div>
+        <h2 className="text-lg font-bold text-slate-800 mb-4">Hoạt động trong ngày & Cần xử lý</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Card 5: Giao dịch hôm nay */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Giao dịch (Hôm nay)</p>
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><TrendingUp size={20} /></div>
+            </div>
+            <div className="flex gap-6">
+              <div>
+                <h3 className="text-2xl font-bold text-emerald-600">{summary?.todayTransaction.borrowedToday || 0}</h3>
+                <p className="text-xs text-slate-500">Đã mượn</p>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-indigo-600">{summary?.todayTransaction.returnedToday || 0}</h3>
+                <p className="text-xs text-slate-500">Đã trả</p>
+              </div>
+            </div>
           </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-            <Clock size={24} />
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500 uppercase">
-              Giao dịch quá hạn
-            </p>
-            <h3 className="text-3xl font-bold text-red-500 mt-2">{summary?.pendingActions.overdueTransactions || 0}</h3>
-            <p className="text-xs text-red-500 mt-2 font-medium">
-              +{summary?.todayActivity.overdueCount || 0} phát sinh hôm nay
-            </p>
+          {/* Card 6: Chờ lấy & Đặt trước */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Yêu cầu mượn</p>
+              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Clock size={20} /></div>
+            </div>
+            <div className="flex gap-6">
+              <div>
+                <h3 className="text-2xl font-bold text-amber-600">{summary?.pendingActions.waitingForPickup || 0}</h3>
+                <p className="text-xs text-slate-500">Chờ lấy sách</p>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-amber-600">{summary?.pendingActions.reservationsPending || 0}</h3>
+                <p className="text-xs text-slate-500">Đặt trước</p>
+              </div>
+            </div>
           </div>
-          <div className="p-3 bg-red-50 text-red-500 rounded-lg">
-            <AlertTriangle size={24} />
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500 uppercase">
-              Độc giả hoạt động
-            </p>
-            <h3 className="text-3xl font-bold text-emerald-600 mt-2">{summary?.overview.activeUsers?.toLocaleString() || 0}</h3>
-            <p className="text-xs text-slate-500 flex items-center gap-1 mt-2">
-              <Users size={14} /> Trên tổng số {summary?.overview.totalUsers?.toLocaleString() || 0}
-            </p>
+          {/* Card 7: Quá hạn */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Quá hạn</p>
+              <div className="p-2 bg-red-50 text-red-600 rounded-lg"><AlertTriangle size={20} /></div>
+            </div>
+            <div className="flex gap-6">
+              <div>
+                <h3 className="text-2xl font-bold text-red-600">{summary?.pendingActions.overdueTransactions || 0}</h3>
+                <p className="text-xs text-slate-500">Tổng đang trễ</p>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-red-500">+{summary?.todayTransaction.newlyOverdueToday || 0}</h3>
+                <p className="text-xs text-slate-500">Phát sinh hôm nay</p>
+              </div>
+            </div>
           </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-            <Users size={24} />
+
+          {/* Card 8: Rủi ro khác */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-slate-500 uppercase">Sự cố (Hôm nay)</p>
+              <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><ShieldAlert size={20} /></div>
+            </div>
+            <div className="flex gap-6">
+              <div>
+                <h3 className="text-2xl font-bold text-orange-600">{summary?.todayTransaction.damagedToday || 0}</h3>
+                <p className="text-xs text-slate-500">Hỏng</p>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-orange-600">{summary?.todayTransaction.lostToday || 0}</h3>
+                <p className="text-xs text-slate-500">Mất</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

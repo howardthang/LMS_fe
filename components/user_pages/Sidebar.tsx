@@ -96,7 +96,7 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
       `}
       >
         <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0">
-          <Link to="/userpage/dashboard" className="flex items-center">
+          <Link to="/publicpage" className="flex items-center">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white mr-2">
               <BookOpen size={20} />
             </div>

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import librarianDashboardService, { 
   DashboardSummaryResponse, 
   DashboardChartsResponse,
@@ -23,6 +24,15 @@ const Dashboard = () => {
   const [charts, setCharts] = useState<DashboardChartsResponse['data'] | null>(null);
   const [riskyUsers, setRiskyUsers] = useState<RiskyUser[]>([]);
   const [chartPeriod, setChartPeriod] = useState<'WEEKLY' | 'MONTHLY' | 'SIX_MONTHS' | 'YEARLY'>('WEEKLY');
+
+  // Tooltip state
+  const [hoveredData, setHoveredData] = useState<{
+    x: number;
+    y: number;
+    date: string;
+    borrowed: number;
+    returned: number;
+  } | null>(null);
 
   // Load username
   const { userType } = useAuth(); // or pull full profile if available 
@@ -51,6 +61,19 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [chartPeriod]);
 
+  const handleMouseEnter = (e: React.MouseEvent, data: any) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoveredData({
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+      ...data
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredData(null);
+  };
+
   if (loading) {
     return (
       <div className="p-8 max-w-7xl mx-auto flex justify-center items-center h-64">
@@ -63,7 +86,36 @@ const Dashboard = () => {
   const maxBorrow = charts?.weeklyBorrowReturnTrend?.reduce((max, d) => Math.max(max, d.borrowed, d.returned), 1) || 1;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in relative">
+      {/* Portal Tooltip - Hoàn toàn nằm ngoài các thẻ div có overflow */}
+      {hoveredData && createPortal(
+        <div 
+          className="fixed z-[9999] pointer-events-none"
+          style={{ 
+            left: `${hoveredData.x}px`, 
+            top: `${hoveredData.y}px`,
+            transform: 'translate(-50%, -115%)',
+          }}
+        >
+          <div className="bg-slate-900 text-white text-[11px] py-2.5 px-4 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-700 min-w-[140px] animate-in fade-in zoom-in duration-200">
+            <p className="font-bold border-b border-white/10 pb-2 mb-2 text-blue-200">{hoveredData.date}</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between gap-6">
+                <span className="text-slate-400">Đã mượn:</span>
+                <span className="font-bold text-blue-400">{hoveredData.borrowed}</span>
+              </div>
+              <div className="flex justify-between gap-6">
+                <span className="text-slate-400">Đã trả:</span>
+                <span className="font-bold text-indigo-300">{hoveredData.returned}</span>
+              </div>
+            </div>
+            {/* Tooltip Arrow */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[8px] border-transparent border-t-slate-900"></div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Tổng quan hệ thống</h1>
@@ -276,7 +328,7 @@ const Dashboard = () => {
 
         <div className="space-y-8">
           {/* Row 1: Full Width Trend Chart */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col w-full">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col w-full relative">
             <div className="mb-6">
               <h3 className="font-bold text-slate-800 text-lg">Xu hướng Mượn / Trả</h3>
               <p className="text-sm text-slate-500">Dữ liệu biến động chi tiết trong {chartPeriod === 'WEEKLY' ? '7 ngày' : chartPeriod === 'MONTHLY' ? '30 ngày' : chartPeriod === 'SIX_MONTHS' ? '6 tháng' : '1 năm'} qua</p>
@@ -296,19 +348,17 @@ const Dashboard = () => {
                     i === (charts?.weeklyBorrowReturnTrend?.length || 0) - 1;
 
                   return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
-                      <div className="w-full flex items-end gap-px h-full relative">
-                        <div className="w-1/2 bg-blue-400 hover:bg-blue-600 transition-all rounded-t-[2px] relative group" style={{ height: `${(d.borrowed / maxBorrow) * 100}%`, minHeight: '2px' }}>
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden md:block whitespace-nowrap shadow-lg">
-                            Mượn: {d.borrowed} ({d.date})
-                          </div>
-                        </div>
-                        <div className="w-1/2 bg-indigo-300 hover:bg-indigo-500 transition-all rounded-t-[2px] relative group" style={{ height: `${(d.returned / maxBorrow) * 100}%`, minHeight: '2px' }}>
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden md:block whitespace-nowrap shadow-lg">
-                            Trả: {d.returned} ({d.date})
-                          </div>
-                        </div>
+                    <div 
+                      key={i} 
+                      className="flex-1 flex flex-col items-center gap-2 group h-full justify-end relative"
+                      onMouseEnter={(e) => handleMouseEnter(e, d)}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      <div className="w-full flex items-end gap-px h-full relative cursor-pointer">
+                        <div className="w-1/2 bg-blue-400 group-hover:bg-blue-500 transition-all rounded-t-[2px] shadow-sm" style={{ height: `${(d.borrowed / maxBorrow) * 100}%`, minHeight: '2px' }}></div>
+                        <div className="w-1/2 bg-indigo-300 group-hover:bg-indigo-400 transition-all rounded-t-[2px] shadow-sm" style={{ height: `${(d.returned / maxBorrow) * 100}%`, minHeight: '2px' }}></div>
                       </div>
+
                       <div className="h-6 flex items-start justify-center">
                         {showLabel && (
                           <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap">
@@ -334,29 +384,52 @@ const Dashboard = () => {
             {/* Top Borrowed Publications */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="mb-6">
-                <h3 className="font-bold text-slate-800">Sách mượn nhiều nhất</h3>
+                <h3 className="font-bold text-slate-800 text-lg">Sách mượn nhiều nhất</h3>
                 <p className="text-xs text-slate-500">Top 5 đầu sách trong {chartPeriod === 'WEEKLY' ? '7 ngày' : chartPeriod === 'MONTHLY' ? '30 ngày' : chartPeriod === 'SIX_MONTHS' ? '6 tháng' : '1 năm'} qua</p>
               </div>
-              <div className="space-y-5">
+              <div className="space-y-6">
                 {charts?.topBorrowedPublications.map((pub, i) => {
                   const maxCount = charts.topBorrowedPublications[0]?.borrowCount || 1;
                   return (
-                    <div key={pub.publicationId} className="space-y-2">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="font-medium text-slate-700 truncate max-w-[180px]" title={pub.title}>{pub.title}</span>
-                        <span className="text-slate-500 font-bold">{pub.borrowCount} lượt</span>
+                    <div key={pub.publicationId} className="flex gap-4 items-center group">
+                      {/* Book Cover */}
+                      <div className="w-12 h-16 rounded-md bg-slate-100 border border-slate-200 overflow-hidden shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
+                        {pub.coverImageUrl ? (
+                          <img src={pub.coverImageUrl} className="w-full h-full object-cover" alt={pub.title} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400">
+                            <BookOpen size={20} />
+                          </div>
+                        )}
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div 
-                          className="bg-blue-500 h-full rounded-full transition-all duration-1000" 
-                          style={{ width: `${(pub.borrowCount / maxCount) * 100}%` }}
-                        ></div>
+                      
+                      {/* Info & Progress */}
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex justify-between items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-700 truncate group-hover:text-blue-600 transition-colors" title={pub.title}>
+                            {pub.title}
+                          </h4>
+                          <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap bg-slate-100 px-1.5 py-0.5 rounded">
+                            {pub.borrowCount} lượt
+                          </span>
+                        </div>
+                        <div className="relative w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(37,99,235,0.2)]" 
+                            style={{ width: `${(pub.borrowCount / maxCount) * 100}%` }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
                 {(!charts?.topBorrowedPublications || charts.topBorrowedPublications.length === 0) && (
-                  <div className="py-10 text-center text-slate-400 text-sm">Chưa có dữ liệu mượn sách</div>
+                  <div className="py-12 text-center flex flex-col items-center gap-3">
+                    <div className="p-3 bg-slate-50 rounded-full text-slate-300">
+                      <BookOpen size={32} />
+                    </div>
+                    <p className="text-slate-400 text-sm">Chưa có dữ liệu mượn sách</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -368,8 +441,8 @@ const Dashboard = () => {
                 <p className="text-xs text-slate-500">Dữ liệu thực tế tại thời điểm hiện tại</p>
               </div>
               <div className="flex flex-col items-center">
-                <div className="relative w-40 h-40">
-                  <svg className="w-full h-full" viewBox="0 0 36 36">
+                <div className="relative w-44 h-44">
+                  <svg className="w-full h-full" viewBox="0 0 42 42">
                     {(() => {
                       const data = charts?.itemStatusDistribution || { available: 0, borrowed: 0, reserved: 0, inMaintenance: 0, lost: 0 };
                       const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
@@ -393,12 +466,12 @@ const Dashboard = () => {
                         return (
                           <circle
                             key={key}
-                            cx="18"
-                            cy="18"
+                            cx="21"
+                            cy="21"
                             r="15.915"
                             fill="transparent"
                             stroke={colors[key as keyof typeof colors]}
-                            strokeWidth="4"
+                            strokeWidth="5"
                             strokeDasharray={strokeDasharray}
                             strokeDashoffset={strokeDashoffset}
                             className="transition-all duration-500"
@@ -406,7 +479,7 @@ const Dashboard = () => {
                         );
                       });
                     })()}
-                    <circle cx="18" cy="18" r="12" fill="white" />
+                    <circle cx="21" cy="21" r="13" fill="white" />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-xl font-bold text-slate-800">
@@ -449,7 +522,7 @@ const Dashboard = () => {
               </div>
               <div className="flex flex-col items-center">
                 <div className="relative w-40 h-40">
-                  <svg className="w-full h-full" viewBox="0 0 36 36">
+                  <svg className="w-full h-full" viewBox="0 0 42 42">
                     {(() => {
                       const data = charts?.fineTypeDistribution || { overdueReturn: 0, damagedBook: 0, lostBook: 0 };
                       const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
@@ -471,8 +544,8 @@ const Dashboard = () => {
                         return (
                           <circle
                             key={key}
-                            cx="18"
-                            cy="18"
+                            cx="21"
+                            cy="21"
                             r="15.915"
                             fill="transparent"
                             stroke={colors[key as keyof typeof colors]}

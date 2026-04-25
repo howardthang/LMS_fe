@@ -12,6 +12,7 @@ import { Layout } from './components/public_pages/Layout';
 import { ScrollToTop } from './components/ScrollToTop';
 import { ProtectedLayout } from './components/user_pages/Sidebar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Public pages
 import AboutPage from './pages/public_pages/AboutPage';
@@ -339,10 +340,12 @@ const AppContent = () => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <ScrollToTop />
-        <AppContent />
-      </Router>
+      <NotificationProvider>
+        <Router>
+          <ScrollToTop />
+          <AppContent />
+        </Router>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

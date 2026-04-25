@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -35,9 +36,11 @@ const Sidebar = () => {
     },
   ];
 
+  const { unreadCount } = useNotifications();
+
   const systemItems = [
     { icon: Settings, label: 'Cài đặt', path: '/librarian/settings' },
-    { icon: Bell, label: 'Thông báo', path: '/librarian/notifications' },
+    { icon: Bell, label: 'Thông báo', path: '/librarian/notifications', badge: unreadCount > 0 ? unreadCount : undefined, badgeColor: 'bg-red-100 text-red-600' },
   ];
 
   const isActive = (path: string) => {
@@ -123,12 +126,23 @@ const Sidebar = () => {
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
-                <item.icon
-                  className={`w-5 h-5 ${
-                    isActive(item.path) ? 'text-blue-600' : 'text-slate-400'
-                  }`}
-                />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3">
+                  <item.icon
+                    className={`w-5 h-5 ${
+                      isActive(item.path) ? 'text-blue-600' : 'text-slate-400'
+                    }`}
+                  />
+                  <span>{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      item.badgeColor || 'bg-blue-100 text-blue-600'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             ))}
             <button

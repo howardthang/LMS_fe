@@ -16,6 +16,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import usersService, { UserProfileResponse } from '../../api/usersService';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const SidebarItem = ({ to, icon: Icon, label, active, count }: any) => (
   <Link
@@ -52,6 +53,7 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = React.useState(false);
   const [profile, setProfile] = useState<UserProfileResponse['data'] | null>(null);
+  const { unreadCount } = useNotifications();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -244,7 +246,11 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
               className="p-2 text-gray-400 hover:text-gray-600 relative rounded-full hover:bg-gray-100 transition-colors"
             >
               <Bell size={20} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 flex items-center justify-center min-w-[1.25rem] h-5 px-1 bg-red-500 rounded-full border-2 border-white text-[10px] font-bold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </Link>
           </div>
         </header>

@@ -1,13 +1,13 @@
 import axiosInstance from './axiosInstance';
 
 export interface UserNotification {
-  userNotificationId: number;
-  notificationId: number;
+  userNotificationId: string;
+  notificationId: string;
   type: string;
   title: string;
   message: string;
   link: string | null;
-  referenceId: number;
+  referenceId: string | null;
   read: boolean;
   receivedAt: string;
   readAt: string | null;
@@ -39,7 +39,7 @@ export const getUnreadCount = async (): Promise<{ code: number; message: string;
   return response as any;
 };
 
-export const markNotificationAsRead = async (userNotificationId: number): Promise<{ code: number; message: string; data: string }> => {
+export const markNotificationAsRead = async (userNotificationId: string): Promise<{ code: number; message: string; data: string }> => {
   const response = await axiosInstance.put(`/users/notifications/${userNotificationId}/read`);
   return response as any;
 };

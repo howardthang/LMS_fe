@@ -1,16 +1,17 @@
 import axiosInstance from './axiosInstance';
 
 export interface BorrowRequest {
-  itemId: number;
+  itemId: string;
 }
 
 export interface BorrowResponse {
-  success: boolean;
+  code: number;
+  message: string;
   data: {
-    transactionId: number;
-    itemId: number;
+    transactionId: string;
+    itemId: string;
     barcode: string;
-    publicationId: number;
+    publicationId: string;
     publicationTitle: string;
     branch: string;
     shelf: string;
@@ -24,17 +25,27 @@ export interface LookupResponse {
   code: number;
   message: string;
   data: {
-    transactionId: number;
-    userId: number;
+    transactionId: string;
+    userId: string;
     studentId: string;
     fullName: string;
-    itemId: number;
+    itemId: string;
     barcode: string;
-    publicationId: number;
+    publicationId: string;
     publicationTitle: string;
     branch: string;
     shelf: string;
     pickedUpDeadline: string;
+    status: string;
+  };
+}
+
+export interface ConfirmPickupResponse {
+  code: number;
+  message: string;
+  data: {
+    transactionId: string;
+    dueDate: string;
     status: string;
   };
 }
@@ -44,10 +55,14 @@ const transactionsService = {
     const response = await axiosInstance.post('/transactions/borrow', data);
     return response as any;
   },
-  lookup: async (params: { transactionId?: number; studentId?: string; barcode?: string }): Promise<LookupResponse> => {
+  lookup: async (params: { transactionId?: string; studentId?: string; barcode?: string }): Promise<LookupResponse> => {
     const response = await axiosInstance.get('/transactions/lookup', { params });
     return response as any;
-  }
+  },
+  confirmPickup: async (transactionId: string): Promise<ConfirmPickupResponse> => {
+    const response = await axiosInstance.post(`/transactions/${transactionId}/confirm-pickup`);
+    return response as any;
+  },
 };
 
 export default transactionsService;

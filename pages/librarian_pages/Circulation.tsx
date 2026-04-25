@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BookOpen,
+  CalendarCheck,
   CheckCircle,
   Clock,
   FileSpreadsheet,
@@ -25,38 +26,67 @@ const Circulation = () => {
     string | null
   >(null);
 
+  const [mssvInput, setMssvInput] = useState('');
   const [scanInput, setScanInput] = useState('');
   const [lookupResult, setLookupResult] = useState<LookupResponse['data'] | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmSuccessData, setConfirmSuccessData] = useState<{ dueDate: string; fullName: string; publicationTitle: string } | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   const handleLookup = async () => {
     if (!scanInput.trim()) return;
     setIsLookingUp(true);
     setLookupResult(null);
+    setLookupError(null);
+    setConfirmSuccessData(null);
     try {
       let params: any = {};
-      // If pure numbers, assume transactionId. Else assume barcode
-      if (/^\d+$/.test(scanInput)) {
-        params = { transactionId: Number(scanInput) };
+      if (/^\d+$/.test(scanInput.trim())) {
+        params = { transactionId: scanInput.trim() };
       } else {
-        if (!currentUser?.studentId) {
-          alert('Vui lòng chọn hoặc nhập mã độc giả trước khi quét Barcode!');
-          setIsLookingUp(false);
+        if (!mssvInput.trim()) {
+          setLookupError('Vui lòng nhập MSSV ở ô "Mã độc giả" trước khi quét barcode sách.');
           return;
         }
-        params = { studentId: currentUser.studentId, barcode: scanInput };
+        params = { studentId: mssvInput.trim(), barcode: scanInput.trim() };
       }
       const response = await transactionsService.lookup(params);
-      if (response.code === 200 && response.data) {
+      if (response.data) {
         setLookupResult(response.data);
       } else {
-        alert(response.message || 'Không tìm thấy giao dịch chờ lấy sách nào.');
+        setLookupError('Không tìm thấy phiếu mượn hoặc đã hết hạn.');
       }
     } catch (error: any) {
-      console.error(error);
-      alert(error.message || 'Lỗi tra cứu giao dịch');
+      if (error.status === 404) {
+        setLookupError('Không tìm thấy phiếu mượn hoặc đã hết hạn.');
+      } else {
+        setLookupError(error.message || 'Lỗi tra cứu giao dịch.');
+      }
     } finally {
       setIsLookingUp(false);
+    }
+  };
+
+  const handleConfirmPickup = async () => {
+    if (!lookupResult) return;
+    setIsConfirming(true);
+    try {
+      const response = await transactionsService.confirmPickup(lookupResult.transactionId);
+      if (response.code === 200) {
+        setConfirmSuccessData({
+          dueDate: response.data.dueDate,
+          fullName: lookupResult.fullName,
+          publicationTitle: lookupResult.publicationTitle,
+        });
+        setLookupResult(null);
+        setScanInput('');
+      }
+    } catch (error: any) {
+      setLookupError(error.message || 'Lỗi xác nhận giao sách.');
+      setLookupResult(null);
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -226,9 +256,10 @@ const Circulation = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Scan hoặc nhập mã..."
+                  placeholder="Scan hoặc nhập MSSV..."
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  defaultValue="2021050123"
+                  value={mssvInput}
+                  onChange={(e) => setMssvInput(e.target.value)}
                 />
               </div>
               <button className="bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700">
@@ -338,7 +369,27 @@ const Circulation = () => {
               </div>
 
               {/* Scan State / Result */}
-              {lookupResult ? (
+              {confirmSuccessData ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
+                  <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CalendarCheck size={28} className="text-emerald-600" />
+                  </div>
+                  <h3 className="font-bold text-emerald-900 text-lg mb-1">Giao sách thành công!</h3>
+                  <p className="text-sm text-emerald-700 mb-4">{confirmSuccessData.fullName} đã nhận <span className="font-semibold">{confirmSuccessData.publicationTitle}</span></p>
+                  <div className="bg-white rounded-lg border border-emerald-200 px-4 py-3 inline-block mb-5">
+                    <span className="text-xs text-slate-500 block">Hạn trả sách</span>
+                    <span className="font-bold text-slate-900">
+                      {new Date(confirmSuccessData.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setConfirmSuccessData(null)}
+                    className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+                  >
+                    Giao dịch tiếp theo
+                  </button>
+                </div>
+              ) : lookupResult ? (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-6">
                   <div className="flex items-center gap-3 mb-4 border-b border-green-200 pb-4">
                     <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
@@ -355,7 +406,7 @@ const Circulation = () => {
                       <span className="font-semibold text-slate-900">{lookupResult.fullName} ({lookupResult.studentId})</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block mb-1">Barcode Bản sao</span>
+                      <span className="text-slate-500 block mb-1">Barcode bản sao</span>
                       <span className="font-semibold text-slate-900">{lookupResult.barcode}</span>
                     </div>
                     <div>
@@ -364,20 +415,39 @@ const Circulation = () => {
                     </div>
                     <div>
                       <span className="text-slate-500 block mb-1">Hạn lấy sách</span>
-                      <span className="font-semibold text-red-600">{new Date(lookupResult.pickedUpDeadline).toLocaleString('vi-VN')}</span>
+                      <span className="font-semibold text-red-600">
+                        {new Date(lookupResult.pickedUpDeadline).toLocaleString('vi-VN', {
+                          hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+                        })}
+                      </span>
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <button className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors">
-                      Giao sách
+                    <button
+                      onClick={handleConfirmPickup}
+                      disabled={isConfirming}
+                      className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {isConfirming ? 'Đang xử lý...' : 'Giao sách'}
                     </button>
-                    <button 
-                      onClick={() => setLookupResult(null)}
+                    <button
+                      onClick={() => { setLookupResult(null); setScanInput(''); setLookupError(null); }}
                       className="px-4 py-2.5 bg-white border border-green-200 text-green-700 rounded-lg font-medium hover:bg-green-100 transition-colors"
                     >
                       Hủy
                     </button>
                   </div>
+                </div>
+              ) : lookupError ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex flex-col items-center text-center gap-3">
+                  <AlertTriangle size={32} className="text-red-500" />
+                  <p className="font-semibold text-red-800">{lookupError}</p>
+                  <button
+                    onClick={() => setLookupError(null)}
+                    className="text-sm text-red-600 underline hover:text-red-800"
+                  >
+                    Thử lại
+                  </button>
                 </div>
               ) : (
                 <div className="bg-green-50 border-2 border-dashed border-green-200 rounded-xl p-8 flex flex-col items-center justify-center text-center">
@@ -388,7 +458,7 @@ const Circulation = () => {
                     Sẵn sàng scan
                   </h3>
                   <p className="text-green-600 text-sm">
-                    Quét Barcode/QR hoặc nhập mã giao dịch để tra cứu
+                    Quét QR (mã giao dịch) hoặc nhập MSSV + barcode sách để tra cứu
                   </p>
                 </div>
               )}

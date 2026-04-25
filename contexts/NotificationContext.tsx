@@ -8,7 +8,7 @@ interface NotificationContextProps {
   notifications: UserNotification[];
   unreadCount: number;
   fetchNotifications: (page?: number, size?: number) => Promise<void>;
-  markAsRead: (userNotificationId: number) => void;
+  markAsRead: (userNotificationId: string) => void;
   markAllAsRead: () => void;
 }
 
@@ -45,7 +45,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const markAsRead = useCallback(async (userNotificationId: number) => {
+  const markAsRead = useCallback(async (userNotificationId: string) => {
     // Optimistic UI update
     setNotifications((prev) => 
       prev.map(n => n.userNotificationId === userNotificationId ? { ...n, read: true } : n)

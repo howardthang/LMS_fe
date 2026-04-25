@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   Calendar,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
+import QRCode from 'react-qr-code';
 import {
   Badge,
   Button,
@@ -566,6 +568,7 @@ const BookDetailPage = () => {
   const [summaryData, setSummaryData] = useState<PublicationRatingSummary | null>(null);
   const [isLoadingRatings, setIsLoadingRatings] = useState(false);
   const [ratingsPage, setRatingsPage] = useState(0);
+  const [borrowSuccessData, setBorrowSuccessData] = useState<import('../../api/transactionsService').BorrowResponse['data'] | null>(null);
 
   useEffect(() => {
     const fetchPublicationDetail = async () => {
@@ -636,15 +639,15 @@ const BookDetailPage = () => {
     fetchRatings();
   }, [id, ratingsPage]);
 
-  const handleBorrow = async (itemId: number) => {
+  const handleBorrow = async (itemId: string) => {
     try {
       // Just a simple confirm, optional
       const confirmBorrow = window.confirm("Bạn có chắc chắn muốn mượn sách này?");
       if (!confirmBorrow) return;
 
       const response = await transactionsService.borrow({ itemId });
-      if (response.success) {
-        alert("Yêu cầu mượn thành công! Vui lòng đến lấy sách trước " + new Date(response.data.pickedUpDeadline).toLocaleString('vi-VN'));
+      if (response.code === 201) {
+        setBorrowSuccessData(response.data);
         // Refresh the items list
         const fetchItems = async () => {
           if (!id) return;
@@ -1112,6 +1115,60 @@ const BookDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Borrow Success Modal */}
+      {borrowSuccessData && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-auto overflow-hidden animate-fade-in-up">
+            <div className="bg-blue-600 p-6 text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={32} className="text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Yêu cầu mượn thành công!</h2>
+              <p className="text-blue-100 mt-2 text-sm">Vui lòng đưa mã QR này cho thủ thư để nhận sách.</p>
+            </div>
+            
+            <div className="p-8">
+              <div className="flex justify-center mb-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <QRCode value={String(borrowSuccessData.transactionId)} size={200} />
+              </div>
+              
+              <div className="space-y-3 mb-8">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-500 font-medium">Mã giao dịch</span>
+                    <span className="font-mono font-bold text-gray-900">#{borrowSuccessData.transactionId}</span>
+                  </div>
+                  <h4 className="font-bold text-gray-900 leading-tight mb-2">{borrowSuccessData.publicationTitle}</h4>
+                  <p className="text-sm text-gray-600 flex items-center gap-1.5 mb-1">
+                    <Layers size={14} className="text-gray-400" /> Vị trí: <span className="font-medium text-gray-800">{borrowSuccessData.branch} - {borrowSuccessData.shelf}</span>
+                  </p>
+                  <p className="text-sm text-gray-600 flex items-center gap-1.5">
+                    <Printer size={14} className="text-gray-400" /> Barcode: <span className="font-medium text-gray-800">{borrowSuccessData.barcode}</span>
+                  </p>
+                </div>
+                
+                <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="block text-sm font-bold text-red-800 mb-1">Hạn chót đến lấy sách</span>
+                    <span className="text-sm text-red-700">{new Date(borrowSuccessData.pickedUpDeadline).toLocaleString('vi-VN', {
+                      hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+                    })}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={() => setBorrowSuccessData(null)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-3 rounded-xl shadow-md"
+              >
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -5,11 +5,15 @@ import {
   CheckCircle,
   Clock,
   Hourglass,
+  Layers,
+  Printer,
   XCircle,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { Badge } from '../../components/ui';
+import QRCode from 'react-qr-code';
+import { Badge, Button } from '../../components/ui';
 import transactionsService, { UserTransaction } from '../../api/transactionsService';
 
 const ACTIVE_STATUSES = ['WAITING_FOR_PICKUP', 'BORROWING', 'OVERDUE'];
@@ -43,6 +47,7 @@ const MyBooksPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const [qrModal, setQrModal] = useState<UserTransaction | null>(null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -158,11 +163,12 @@ const MyBooksPage = () => {
               <div
                 key={tx.transactionId}
                 ref={isHighlighted ? highlightRef : null}
+                onClick={() => tx.status === 'WAITING_FOR_PICKUP' ? setQrModal(tx) : undefined}
                 className={`bg-white border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center gap-4 transition-shadow ${
                   isHighlighted
                     ? 'border-yellow-300 shadow-md animate-highlight-pulse'
                     : 'border-gray-100 hover:shadow-sm'
-                }`}
+                } ${tx.status === 'WAITING_FOR_PICKUP' ? 'cursor-pointer hover:border-blue-300' : ''}`}
               >
                 {/* Book info */}
                 <div className="flex-grow min-w-0">
@@ -183,7 +189,12 @@ const MyBooksPage = () => {
                 {/* Dates */}
                 <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-500 flex-shrink-0">
                   {tx.status === 'WAITING_FOR_PICKUP' && (
-                    <span>Hạn lấy: <strong className="text-yellow-700">{formatDate(tx.pickedUpDeadline)}</strong></span>
+                    <span>Hạn lấy: <strong className="text-yellow-700">
+                      {new Date(tx.pickedUpDeadline).toLocaleString('vi-VN', {
+                        hour: '2-digit', minute: '2-digit',
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                      })}
+                    </strong></span>
                   )}
                   {(tx.status === 'BORROWING' || tx.status === 'OVERDUE') && (
                     <>
@@ -233,6 +244,62 @@ const MyBooksPage = () => {
             <span className="text-xs text-gray-500">Lần bị phạt</span>
           </div>
         </div>
+      )}
+      {/* QR Modal cho WAITING_FOR_PICKUP — portal ra document.body để tránh bị clip bởi parent */}
+      {qrModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-auto overflow-hidden animate-fade-in-up">
+            <div className="bg-blue-600 p-6 text-center">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={32} className="text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Phiếu mượn sách</h2>
+              <p className="text-blue-100 mt-2 text-sm">Đưa mã QR này cho thủ thư để nhận sách.</p>
+            </div>
+
+            <div className="p-8">
+              <div className="flex justify-center mb-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <QRCode value={qrModal.transactionId} size={200} />
+              </div>
+
+              <div className="space-y-3 mb-8">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-500 font-medium">Mã giao dịch</span>
+                    <span className="font-mono font-bold text-gray-900">#{qrModal.transactionId}</span>
+                  </div>
+                  <h4 className="font-bold text-gray-900 leading-tight mb-2">{qrModal.publicationTitle}</h4>
+                  <p className="text-sm text-gray-600 flex items-center gap-1.5 mb-1">
+                    <Layers size={14} className="text-gray-400" /> Vị trí: <span className="font-medium text-gray-800">{qrModal.branch} - {qrModal.shelf}</span>
+                  </p>
+                  <p className="text-sm text-gray-600 flex items-center gap-1.5">
+                    <Printer size={14} className="text-gray-400" /> Barcode: <span className="font-medium text-gray-800">{qrModal.barcode}</span>
+                  </p>
+                </div>
+
+                <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="block text-sm font-bold text-red-800 mb-1">Hạn chót đến lấy sách</span>
+                    <span className="text-sm text-red-700">
+                      {new Date(qrModal.pickedUpDeadline).toLocaleString('vi-VN', {
+                        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => setQrModal(null)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-3 rounded-xl shadow-md"
+              >
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -13,6 +13,7 @@ import { ScrollToTop } from './components/ScrollToTop';
 import { ProtectedLayout } from './components/user_pages/Sidebar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { Toaster } from 'sonner';
 
 // Public pages
 import AboutPage from './pages/public_pages/AboutPage';
@@ -345,6 +346,7 @@ function App() {
           <ScrollToTop />
           <AppContent />
         </Router>
+        <Toaster position="bottom-right" richColors closeButton duration={5000} />
       </NotificationProvider>
     </AuthProvider>
   );

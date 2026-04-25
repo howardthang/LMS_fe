@@ -54,7 +54,7 @@ const usersService = {
   onboardingProfile: async (data: OnboardingProfileRequest): Promise<any> => {
     return axiosInstance.post('/auth/onboarding-profile', data);
   },
-  updateAvatar: async (file: File): Promise<any> => {
+  updateAvatar: async (file: File): Promise<UserProfileResponse> => {
     const formData = new FormData();
     formData.append('file', file);
     return axiosInstance.post('/users/avatar', formData, {

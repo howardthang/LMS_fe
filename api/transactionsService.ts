@@ -69,6 +69,27 @@ export interface MyTransactionsResponse {
   };
 }
 
+export interface DirectBorrowRequest {
+  studentId: string;
+  barcode: string;
+}
+
+export interface DirectBorrowResponse {
+  code: number;
+  message: string;
+  data: {
+    transactionId: string;
+    itemId: string;
+    barcode: string;
+    publicationId: string;
+    publicationTitle: string;
+    branch: string;
+    shelf: string;
+    dueDate: string;
+    status: string;
+  };
+}
+
 export interface ConfirmPickupResponse {
   code: number;
   message: string;
@@ -94,6 +115,10 @@ const transactionsService = {
   },
   getMyTransactions: async (page: number = 0, size: number = 10): Promise<MyTransactionsResponse> => {
     const response = await axiosInstance.get('/transactions/my-transactions', { params: { page, size } });
+    return response as any;
+  },
+  borrowDirect: async (data: DirectBorrowRequest): Promise<DirectBorrowResponse> => {
+    const response = await axiosInstance.post('/transactions/borrow-direct', data);
     return response as any;
   },
 };

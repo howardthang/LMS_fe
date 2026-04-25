@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import SockJS from 'sockjs-client';
 import { Client, IMessage } from '@stomp/stompjs';
+import { toast } from 'sonner';
 import { getNotifications, getUnreadCount, markNotificationAsRead, markAllNotificationsAsRead, UserNotification, NotificationResponse } from '../api/notificationService';
-import { useAuth } from './AuthContext'; // assuming we have a useAuth hook in AuthContext
+import { useAuth } from './AuthContext';
 
 interface NotificationContextProps {
   notifications: UserNotification[];
@@ -72,6 +73,27 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const showToast = (n: UserNotification) => {
+    const opts = { description: n.message };
+    switch (n.type) {
+      case 'OVERDUE_WARNING':
+      case 'FINE_ISSUED':
+        toast.error(n.title, { ...opts, duration: Infinity });
+        break;
+      case 'BORROW_CANCELLED_EXPIRED':
+        toast.warning(n.title, { ...opts, duration: Infinity });
+        break;
+      case 'BORROW_SUCCESS':
+      case 'PICKUP_CONFIRMED':
+      case 'BOOK_AVAILABLE':
+      case 'BOOK_RESERVED':
+        toast.success(n.title, opts);
+        break;
+      default:
+        toast.info(n.title, opts);
+    }
+  };
+
   useEffect(() => {
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) return;
@@ -104,8 +126,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
             const notification: UserNotification = JSON.parse(message.body);
             setNotifications((prev) => [notification, ...prev]);
             setUnreadCount((prev) => prev + 1);
-            // Optionally trigger a toast here
-            // toast.info(notification.title);
+            showToast(notification);
           } catch (e) {
             console.error('Failed to parse notification message:', e);
           }

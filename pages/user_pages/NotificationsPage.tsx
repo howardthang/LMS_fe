@@ -102,7 +102,7 @@ const NotificationsPage = () => {
     }
 
     // 3. Tự động điều hướng theo type
-    if (notif.type.includes('BORROW') || notif.type.includes('OVERDUE') || notif.type.includes('RETURN')) {
+    if (notif.type.includes('BORROW') || notif.type.includes('OVERDUE') || notif.type.includes('RETURN') || notif.type === 'PICKUP_CONFIRMED') {
       const highlight = notif.referenceId ? `?highlight=${notif.referenceId}` : '';
       navigate(`/userpage/my-books${highlight}`);
     } else if (notif.type === 'FINE_ISSUED') {
@@ -116,6 +116,7 @@ const NotificationsPage = () => {
   const mapTypeToStyle = (type: string) => {
     switch (type) {
       case 'BORROW_SUCCESS':
+      case 'PICKUP_CONFIRMED':
       case 'BOOK_AVAILABLE':
       case 'BOOK_RESERVED':
         return 'success';

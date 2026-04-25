@@ -12,6 +12,15 @@
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
             },
+            animation: {
+              'highlight-pulse': 'highlight-pulse 1.2s ease-in-out 3',
+            },
+            keyframes: {
+              'highlight-pulse': {
+                '0%, 100%': { backgroundColor: 'transparent' },
+                '50%': { backgroundColor: '#fef9c3' },
+              },
+            },
             colors: {
               primary: {
                 50: '#eff6ff',

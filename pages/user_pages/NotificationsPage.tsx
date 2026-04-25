@@ -103,7 +103,8 @@ const NotificationsPage = () => {
 
     // 3. Tự động điều hướng theo type
     if (notif.type.includes('BORROW') || notif.type.includes('OVERDUE') || notif.type.includes('RETURN')) {
-      navigate(`/userpage/my-books`);
+      const highlight = notif.referenceId ? `?highlight=${notif.referenceId}` : '';
+      navigate(`/userpage/my-books${highlight}`);
     } else if (notif.type === 'FINE_ISSUED') {
       navigate(`/userpage/fines`);
     } else if (notif.type.includes('BOOK')) {

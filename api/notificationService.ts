@@ -8,13 +8,14 @@ export interface UserNotification {
   message: string;
   link: string | null;
   referenceId: number;
-  isRead: boolean;
+  read: boolean;
   receivedAt: string;
   readAt: string | null;
 }
 
 export interface NotificationResponse {
-  success: boolean;
+  code: number;
+  message: string;
   data: {
     content: UserNotification[];
     currentPage: number;
@@ -30,20 +31,20 @@ export const getNotifications = async (page: number = 0, size: number = 20): Pro
   const response = await axiosInstance.get('/users/notifications', {
     params: { page, size },
   });
-  return response.data;
+  return response as any;
 };
 
-export const getUnreadCount = async (): Promise<{ success: boolean; data: number }> => {
+export const getUnreadCount = async (): Promise<{ code: number; message: string; data: number }> => {
   const response = await axiosInstance.get('/users/notifications/unread-count');
-  return response.data;
+  return response as any;
 };
 
-export const markNotificationAsRead = async (userNotificationId: number): Promise<{ success: boolean; data: string }> => {
+export const markNotificationAsRead = async (userNotificationId: number): Promise<{ code: number; message: string; data: string }> => {
   const response = await axiosInstance.put(`/users/notifications/${userNotificationId}/read`);
-  return response.data;
+  return response as any;
 };
 
-export const markAllNotificationsAsRead = async (): Promise<{ success: boolean; data: string }> => {
+export const markAllNotificationsAsRead = async (): Promise<{ code: number; message: string; data: string }> => {
   const response = await axiosInstance.put('/users/notifications/read-all');
-  return response.data;
+  return response as any;
 };

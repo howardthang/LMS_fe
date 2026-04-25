@@ -28,6 +28,7 @@ import {
   StarRating,
 } from '../../components/ui';
 import publicationsService from '../../api/publicationsService';
+import transactionsService from '../../api/transactionsService';
 import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicationRatings, PublicationRatingSummary } from '../../api/publicationTypes';
 
 // --- Sub-components for Tabs ---
@@ -635,6 +636,38 @@ const BookDetailPage = () => {
     fetchRatings();
   }, [id, ratingsPage]);
 
+  const handleBorrow = async (itemId: number) => {
+    try {
+      // Just a simple confirm, optional
+      const confirmBorrow = window.confirm("Bạn có chắc chắn muốn mượn sách này?");
+      if (!confirmBorrow) return;
+
+      const response = await transactionsService.borrow({ itemId });
+      if (response.success) {
+        alert("Yêu cầu mượn thành công! Vui lòng đến lấy sách trước " + new Date(response.data.pickedUpDeadline).toLocaleString('vi-VN'));
+        // Refresh the items list
+        const fetchItems = async () => {
+          if (!id) return;
+          try {
+            setIsLoadingItems(true);
+            const res = await publicationsService.getPublicationItems(id, itemsPage, 5);
+            if (res.code === 200) {
+              setItemsData(res.data);
+            }
+          } catch (error) {
+            console.error('Failed to fetch items:', error);
+          } finally {
+            setIsLoadingItems(false);
+          }
+        };
+        fetchItems();
+      }
+    } catch (error: any) {
+      console.error('Borrow failed:', error);
+      alert(error.message || "Không thể mượn sách lúc này. Vui lòng thử lại sau.");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -928,6 +961,7 @@ const BookDetailPage = () => {
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700 shadow-sm w-28"
+                              onClick={() => handleBorrow(item.id)}
                             >
                               Mượn ngay
                             </Button>

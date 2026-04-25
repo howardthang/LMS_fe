@@ -10,6 +10,7 @@ import { Button } from '../../components/ui';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationItem = ({
   type,
@@ -54,10 +55,15 @@ const NotificationItem = ({
   const style = styles[type] || styles.info;
   const Icon = style.icon;
 
+  const currentBg = !isRead ? 'bg-blue-100 border-blue-100' : `${style.bg} ${style.border}`;
+
   return (
     <div
-      className={`p-6 rounded-xl border ${style.border} ${style.bg} flex flex-col sm:flex-row gap-4 hover:shadow-sm transition-shadow ${!isRead ? 'border-l-4 border-l-blue-500' : ''}`}
+      className={`relative p-6 rounded-xl border ${currentBg} flex flex-col sm:flex-row gap-4 hover:shadow-md transition-all cursor-pointer`}
     >
+      {!isRead && (
+        <span className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm animate-pulse"></span>
+      )}
       <div
         className={`w-12 h-12 rounded-full ${style.iconBg} flex items-center justify-center flex-shrink-0`}
       >
@@ -83,6 +89,27 @@ const NotificationItem = ({
 
 const NotificationsPage = () => {
   const { notifications, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (notif: any) => {
+    // 1. Đánh dấu đã đọc
+    if (!notif.read) markAsRead(notif.userNotificationId);
+
+    // 2. Chuyển hướng theo link có sẵn (nếu có)
+    if (notif.link) {
+      window.location.href = notif.link;
+      return;
+    }
+
+    // 3. Tự động điều hướng theo type
+    if (notif.type.includes('BORROW') || notif.type.includes('OVERDUE') || notif.type.includes('RETURN')) {
+      navigate(`/userpage/my-books`);
+    } else if (notif.type === 'FINE_ISSUED') {
+      navigate(`/userpage/fines`);
+    } else if (notif.type.includes('BOOK')) {
+      navigate(`/userpage/reservations`);
+    }
+  };
 
   // Helper to map API notification types to UI styles
   const mapTypeToStyle = (type: string) => {
@@ -129,9 +156,7 @@ const NotificationsPage = () => {
           </div>
         ) : (
           notifications.map((notif) => (
-            <div key={notif.userNotificationId} onClick={() => {
-              if (!notif.isRead) markAsRead(notif.userNotificationId);
-            }}>
+            <div key={notif.userNotificationId} onClick={() => handleNotificationClick(notif)} className="transform transition-transform active:scale-[0.99]">
               <NotificationItem
                 type={mapTypeToStyle(notif.type)}
                 title={notif.title}
@@ -139,7 +164,7 @@ const NotificationsPage = () => {
                 time={formatDistanceToNow(new Date(notif.receivedAt), { addSuffix: true, locale: vi })}
                 actionText={notif.link ? "Xem chi tiết" : null}
                 actionLink={notif.link}
-                isRead={notif.isRead}
+                isRead={notif.read}
               />
             </div>
           ))

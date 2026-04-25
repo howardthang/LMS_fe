@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Transaction, User } from '../../types';
+import transactionsService, { LookupResponse } from '../../api/transactionsService';
 
 const Circulation = () => {
   const [activeTab, setActiveTab] = useState<
@@ -23,6 +24,41 @@ const Circulation = () => {
   const [selectedItemForReport, setSelectedItemForReport] = useState<
     string | null
   >(null);
+
+  const [scanInput, setScanInput] = useState('');
+  const [lookupResult, setLookupResult] = useState<LookupResponse['data'] | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
+  const handleLookup = async () => {
+    if (!scanInput.trim()) return;
+    setIsLookingUp(true);
+    setLookupResult(null);
+    try {
+      let params: any = {};
+      // If pure numbers, assume transactionId. Else assume barcode
+      if (/^\d+$/.test(scanInput)) {
+        params = { transactionId: Number(scanInput) };
+      } else {
+        if (!currentUser?.studentId) {
+          alert('Vui lòng chọn hoặc nhập mã độc giả trước khi quét Barcode!');
+          setIsLookingUp(false);
+          return;
+        }
+        params = { studentId: currentUser.studentId, barcode: scanInput };
+      }
+      const response = await transactionsService.lookup(params);
+      if (response.code === 200 && response.data) {
+        setLookupResult(response.data);
+      } else {
+        alert(response.message || 'Không tìm thấy giao dịch chờ lấy sách nào.');
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Lỗi tra cứu giao dịch');
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
 
   // Mock Data
   const currentUser: User = {
@@ -281,29 +317,81 @@ const Circulation = () => {
                     />
                     <input
                       type="text"
-                      placeholder="Scan barcode item..."
+                      value={scanInput}
+                      onChange={(e) => setScanInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleLookup();
+                      }}
+                      placeholder="Scan barcode hoặc mã giao dịch..."
                       className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                       autoFocus
                     />
                   </div>
-                  <button className="bg-green-600 text-white px-6 py-2.5 rounded-lg hover:bg-green-700 font-medium">
-                    Xác nhận
+                  <button 
+                    onClick={handleLookup}
+                    disabled={isLookingUp}
+                    className="bg-green-600 text-white px-6 py-2.5 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
+                  >
+                    {isLookingUp ? 'Đang xử lý...' : 'Xác nhận'}
                   </button>
                 </div>
               </div>
 
-              {/* Scan State Placeholder */}
-              <div className="bg-green-50 border-2 border-dashed border-green-200 rounded-xl p-8 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
-                  <Scan className="text-green-500 w-8 h-8" />
+              {/* Scan State / Result */}
+              {lookupResult ? (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-4 border-b border-green-200 pb-4">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                      <BookOpen size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-green-900">{lookupResult.publicationTitle}</h3>
+                      <p className="text-sm text-green-700">Mã giao dịch: #{lookupResult.transactionId}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm mb-6">
+                    <div>
+                      <span className="text-slate-500 block mb-1">Độc giả</span>
+                      <span className="font-semibold text-slate-900">{lookupResult.fullName} ({lookupResult.studentId})</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block mb-1">Barcode Bản sao</span>
+                      <span className="font-semibold text-slate-900">{lookupResult.barcode}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block mb-1">Vị trí</span>
+                      <span className="font-semibold text-slate-900">{lookupResult.branch} - {lookupResult.shelf}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block mb-1">Hạn lấy sách</span>
+                      <span className="font-semibold text-red-600">{new Date(lookupResult.pickedUpDeadline).toLocaleString('vi-VN')}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors">
+                      Giao sách
+                    </button>
+                    <button 
+                      onClick={() => setLookupResult(null)}
+                      className="px-4 py-2.5 bg-white border border-green-200 text-green-700 rounded-lg font-medium hover:bg-green-100 transition-colors"
+                    >
+                      Hủy
+                    </button>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-green-800 mb-1">
-                  Sẵn sàng scan
-                </h3>
-                <p className="text-green-600 text-sm">
-                  Đặt barcode vào máy quét hoặc nhập thủ công
-                </p>
-              </div>
+              ) : (
+                <div className="bg-green-50 border-2 border-dashed border-green-200 rounded-xl p-8 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <Scan className="text-green-500 w-8 h-8" />
+                  </div>
+                  <h3 className="font-semibold text-green-800 mb-1">
+                    Sẵn sàng scan
+                  </h3>
+                  <p className="text-green-600 text-sm">
+                    Quét Barcode/QR hoặc nhập mã giao dịch để tra cứu
+                  </p>
+                </div>
+              )}
             </div>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center gap-2 mb-4">

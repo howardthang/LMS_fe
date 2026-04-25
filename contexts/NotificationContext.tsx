@@ -22,7 +22,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const fetchNotifications = useCallback(async (page: number = 0, size: number = 20) => {
     try {
       const response = await getNotifications(page, size);
-      if (response.success) {
+      if (response.code === 200) {
         setNotifications((prev) => {
           // If page is 0, replace, else append
           if (page === 0) return response.data.content;
@@ -37,7 +37,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const fetchUnreadCount = useCallback(async () => {
     try {
       const response = await getUnreadCount();
-      if (response.success) {
+      if (response.code === 200) {
         setUnreadCount(response.data);
       }
     } catch (error) {
@@ -48,7 +48,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const markAsRead = useCallback(async (userNotificationId: number) => {
     // Optimistic UI update
     setNotifications((prev) => 
-      prev.map(n => n.userNotificationId === userNotificationId ? { ...n, isRead: true } : n)
+      prev.map(n => n.userNotificationId === userNotificationId ? { ...n, read: true } : n)
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
     
@@ -62,7 +62,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const markAllAsRead = useCallback(async () => {
-    setNotifications((prev) => prev.map(n => ({ ...n, isRead: true })));
+    setNotifications((prev) => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
 
     try {

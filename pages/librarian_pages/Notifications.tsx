@@ -3,9 +3,27 @@ import { Bell, Info, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 const Notifications = () => {
   const { notifications, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (notif: any) => {
+    if (!notif.read) markAsRead(notif.userNotificationId);
+    
+    if (notif.link) {
+      window.location.href = notif.link;
+      return;
+    }
+    
+    // Điều hướng cho Librarian
+    if (notif.type.includes('BORROW') || notif.type.includes('OVERDUE') || notif.type.includes('RETURN') || notif.type.includes('FINE')) {
+       navigate(`/librarianpage/circulation`);
+    } else if (notif.type.includes('BOOK')) {
+       navigate(`/librarianpage/requests`);
+    }
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -78,18 +96,18 @@ const Notifications = () => {
             return (
               <div 
                 key={notif.userNotificationId} 
-                onClick={() => {
-                  if (!notif.isRead) markAsRead(notif.userNotificationId);
-                }}
-                className={`p-4 rounded-xl border ${notif.isRead ? 'bg-white border-slate-200' : 'bg-blue-50/50 border-blue-200 shadow-sm'} flex gap-4 transition-all hover:shadow-md cursor-pointer`}
+                onClick={() => handleNotificationClick(notif)}
+                className={`relative p-4 rounded-xl border ${notif.read ? 'bg-white border-slate-200' : 'bg-blue-50 border-blue-200 shadow-sm'} flex gap-4 transition-all hover:shadow-md hover:bg-slate-50 cursor-pointer transform active:scale-[0.99]`}
               >
+                {!notif.read && (
+                  <span className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm animate-pulse"></span>
+                )}
                 <div className={`w-12 h-12 rounded-full ${getBgColor(iconType)} flex items-center justify-center flex-shrink-0`}>
                   {getIcon(iconType)}
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
-                    <h3 className={`font-semibold ${notif.isRead ? 'text-slate-700' : 'text-slate-900'}`}>{notif.title}</h3>
-                    {!notif.isRead && <span className="w-2 h-2 rounded-full bg-blue-600 mt-2"></span>}
+                    <h3 className={`font-semibold ${notif.read ? 'text-slate-700' : 'text-slate-900'} group-hover:text-blue-600 transition-colors`}>{notif.title}</h3>
                   </div>
                   <p className="text-slate-600 text-sm mt-1">{notif.message}</p>
                   <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">

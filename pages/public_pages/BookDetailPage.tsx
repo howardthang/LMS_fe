@@ -548,6 +548,31 @@ const RelatedBooksTab = () => (
   </div>
 );
 
+const ITEM_STATUS_MAP: Record<string, { label: string; dot: string; badge: string }> = {
+  AVAILABLE:      { label: 'Có sẵn',           dot: 'bg-green-500',  badge: 'bg-green-100 text-green-800' },
+  RESERVED:       { label: 'Đã có người đặt',  dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-800' },
+  BORROWED:       { label: 'Đang được mượn',   dot: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800' },
+  IN_MAINTENANCE: { label: 'Đang bảo trì',     dot: 'bg-orange-500', badge: 'bg-orange-100 text-orange-800' },
+  LOST:           { label: 'Mất / Thất lạc',   dot: 'bg-red-500',    badge: 'bg-red-100 text-red-800' },
+};
+
+const ItemStatusBadge = ({ status, dueDate }: { status: string; dueDate?: string | null }) => {
+  const cfg = ITEM_STATUS_MAP[status] ?? { label: status, dot: 'bg-gray-400', badge: 'bg-gray-100 text-gray-700' };
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${cfg.badge}`}>
+        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${cfg.dot}`}></span>
+        {cfg.label}
+      </span>
+      {status === 'BORROWED' && dueDate && (
+        <span className="text-[10px] text-gray-500 ml-1">
+          Trả dự kiến: {new Date(dueDate).toLocaleDateString('vi-VN')}
+        </span>
+      )}
+    </div>
+  );
+};
+
 // --- Main Page Component ---
 
 const BookDetailPage = () => {
@@ -940,41 +965,19 @@ const BookDetailPage = () => {
                           <div className="text-xs text-gray-400">{item.shelf}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {item.status === 'AVAILABLE' ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                              Có sẵn
-                            </span>
-                          ) : (
-                            <div className="flex flex-col">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 w-fit">
-                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
-                                Đang được mượn
-                              </span>
-                              {item.dueDate && (
-                                <span className="text-[10px] text-gray-500 mt-1 ml-1">
-                                  Trả dự kiến: {new Date(item.dueDate).toLocaleDateString('vi-VN')}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                          <ItemStatusBadge status={item.status} dueDate={item.dueDate} />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           {item.status === 'AVAILABLE' ? (
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 shadow-sm w-28"
-                              onClick={() => handleBorrow(item.id)}
-                            >
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 shadow-sm w-28" onClick={() => handleBorrow(item.id)}>
                               Mượn ngay
                             </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 shadow-sm w-28"
-                            >
+                          ) : item.status === 'BORROWED' || item.status === 'RESERVED' ? (
+                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-sm w-28">
                               Đặt trước
                             </Button>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Không khả dụng</span>
                           )}
                         </td>
                       </tr>

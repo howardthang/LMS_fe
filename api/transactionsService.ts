@@ -100,6 +100,73 @@ export interface ConfirmPickupResponse {
   };
 }
 
+export interface StudentActiveTransactionsResponse {
+  code: number;
+  message: string;
+  data: {
+    studentId: string;
+    fullName: string;
+    items: {
+      transactionId: string;
+      publicationTitle: string;
+      barcode: string;
+      branch: string;
+      shelf: string;
+      borrowedDate: string;
+      dueDate: string;
+      status: 'BORROWING' | 'OVERDUE';
+    }[];
+  };
+}
+
+export interface ActiveTransactionResponse {
+  code: number;
+  message: string;
+  data: {
+    transactionId: string;
+    userId: string;
+    studentId: string;
+    fullName: string;
+    publicationTitle: string;
+    barcode: string;
+    branch: string;
+    shelf: string;
+    borrowedDate: string;
+    dueDate: string;
+    status: 'BORROWING' | 'OVERDUE';
+  };
+}
+
+export interface ReturnResponse {
+  code: number;
+  message: string;
+  data: {
+    transactionId: string;
+    publicationTitle: string;
+    barcode: string;
+    returnedDate: string;
+    overdue: boolean;
+    overdueFineAmount: number | null;
+  };
+}
+
+export type IssueType = 'DAMAGED_BOOK' | 'LOST_BOOK';
+
+export interface ReportIssueResponse {
+  code: number;
+  message: string;
+  data: {
+    transactionId: string;
+    publicationTitle: string;
+    itemStatus: string;
+    finesCreated: {
+      fineId: string;
+      type: IssueType | 'OVERDUE_RETURN';
+      amount: number;
+    }[];
+  };
+}
+
 const transactionsService = {
   borrow: async (data: BorrowRequest): Promise<BorrowResponse> => {
     const response = await axiosInstance.post('/transactions/borrow', data);
@@ -119,6 +186,22 @@ const transactionsService = {
   },
   borrowDirect: async (data: DirectBorrowRequest): Promise<DirectBorrowResponse> => {
     const response = await axiosInstance.post('/transactions/borrow-direct', data);
+    return response as any;
+  },
+  getStudentActive: async (studentId: string): Promise<StudentActiveTransactionsResponse> => {
+    const response = await axiosInstance.get('/transactions/student-active', { params: { studentId } });
+    return response as any;
+  },
+  lookupActive: async (barcode: string): Promise<ActiveTransactionResponse> => {
+    const response = await axiosInstance.get('/transactions/active', { params: { barcode } });
+    return response as any;
+  },
+  returnBook: async (barcode: string): Promise<ReturnResponse> => {
+    const response = await axiosInstance.post('/transactions/return', { barcode });
+    return response as any;
+  },
+  reportIssue: async (transactionId: string, type: IssueType, fineAmount: number): Promise<ReportIssueResponse> => {
+    const response = await axiosInstance.post(`/transactions/${transactionId}/report-issue`, { type, fineAmount });
     return response as any;
   },
 };

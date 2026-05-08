@@ -2,10 +2,13 @@ import {
   AlertCircle,
   AlertTriangle,
   BookOpen,
+  Calendar,
   CheckCircle,
   Clock,
+  Hash,
   Hourglass,
   Layers,
+  MapPin,
   Printer,
   XCircle,
 } from 'lucide-react';
@@ -48,6 +51,9 @@ const MyBooksPage = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [qrModal, setQrModal] = useState<UserTransaction | null>(null);
+  const [detailModal, setDetailModal] = useState<UserTransaction | null>(null);
+  const [historyPage, setHistoryPage] = useState(0);
+  const HISTORY_PAGE_SIZE = 10;
   const highlightRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -89,7 +95,11 @@ const MyBooksPage = () => {
 
   const active = transactions.filter(t => ACTIVE_STATUSES.includes(t.status));
   const history = transactions.filter(t => HISTORY_STATUSES.includes(t.status));
-  const displayed = activeTab === 'current' ? active : history;
+
+  const historyTotalPages = Math.ceil(history.length / HISTORY_PAGE_SIZE);
+  const historyPaged = history.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
+
+  const displayed = activeTab === 'current' ? active : historyPaged;
 
   const overdueCount = active.filter(t => t.status === 'OVERDUE').length;
   const soonCount = active.filter(t => t.status === 'BORROWING' && daysUntil(t.dueDate) <= 3 && daysUntil(t.dueDate) >= 0).length;
@@ -110,7 +120,7 @@ const MyBooksPage = () => {
             Đang mượn ({active.length})
           </button>
           <button
-            onClick={() => setActiveTab('history')}
+            onClick={() => { setActiveTab('history'); setHistoryPage(0); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
           >
             Lịch sử ({history.length})
@@ -145,6 +155,29 @@ const MyBooksPage = () => {
         </div>
       )}
 
+      {/* Tổng kết lịch sử — hiện trước danh sách */}
+      {activeTab === 'history' && history.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col items-center">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-full mb-2"><BookOpen size={20} /></div>
+            <span className="text-2xl font-bold text-gray-900">{totalElements}</span>
+            <span className="text-xs text-gray-500">Tổng giao dịch</span>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col items-center">
+            <div className="p-2 bg-green-50 text-green-600 rounded-full mb-2"><CheckCircle size={20} /></div>
+            <span className="text-2xl font-bold text-gray-900">{history.filter(t => t.status === 'RETURNED').length}</span>
+            <span className="text-xs text-gray-500">Đã trả</span>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col items-center">
+            <div className="p-2 bg-red-50 text-red-600 rounded-full mb-2"><AlertTriangle size={20} /></div>
+            <span className="text-2xl font-bold text-gray-900">
+              {history.filter(t => t.fineAmount != null && t.fineAmount > 0).length}
+            </span>
+            <span className="text-xs text-gray-500">Lần bị phạt</span>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="text-center py-16 text-gray-400">Đang tải...</div>
@@ -163,12 +196,12 @@ const MyBooksPage = () => {
               <div
                 key={tx.transactionId}
                 ref={isHighlighted ? highlightRef : null}
-                onClick={() => tx.status === 'WAITING_FOR_PICKUP' ? setQrModal(tx) : undefined}
-                className={`bg-white border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center gap-4 transition-shadow ${
+                onClick={() => tx.status === 'WAITING_FOR_PICKUP' ? setQrModal(tx) : setDetailModal(tx)}
+                className={`bg-white border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center gap-4 transition-shadow cursor-pointer ${
                   isHighlighted
                     ? 'border-yellow-300 shadow-md animate-highlight-pulse'
-                    : 'border-gray-100 hover:shadow-sm'
-                } ${tx.status === 'WAITING_FOR_PICKUP' ? 'cursor-pointer hover:border-blue-300' : ''}`}
+                    : 'border-gray-100 hover:shadow-sm hover:border-blue-200'
+                }`}
               >
                 {/* Book info */}
                 <div className="flex-grow min-w-0">
@@ -223,28 +256,150 @@ const MyBooksPage = () => {
         </div>
       )}
 
-      {/* Tổng kết lịch sử */}
-      {activeTab === 'history' && history.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col items-center">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-full mb-2"><BookOpen size={20} /></div>
-            <span className="text-2xl font-bold text-gray-900">{totalElements}</span>
-            <span className="text-xs text-gray-500">Tổng giao dịch</span>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col items-center">
-            <div className="p-2 bg-green-50 text-green-600 rounded-full mb-2"><CheckCircle size={20} /></div>
-            <span className="text-2xl font-bold text-gray-900">{history.filter(t => t.status === 'RETURNED').length}</span>
-            <span className="text-xs text-gray-500">Đã trả</span>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col items-center">
-            <div className="p-2 bg-red-50 text-red-600 rounded-full mb-2"><AlertTriangle size={20} /></div>
-            <span className="text-2xl font-bold text-gray-900">
-              {history.filter(t => t.fineAmount != null && t.fineAmount > 0).length}
-            </span>
-            <span className="text-xs text-gray-500">Lần bị phạt</span>
+      {/* Pagination cho tab lịch sử */}
+      {activeTab === 'history' && historyTotalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+          <p className="text-sm text-gray-500">
+            Hiển thị{' '}
+            <span className="font-semibold text-gray-800">
+              {historyPage * HISTORY_PAGE_SIZE + 1}–{Math.min((historyPage + 1) * HISTORY_PAGE_SIZE, history.length)}
+            </span>{' '}
+            trong <span className="font-semibold text-gray-800">{history.length}</span> giao dịch
+          </p>
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <button
+              onClick={() => setHistoryPage(p => Math.max(0, p - 1))}
+              disabled={historyPage === 0}
+              className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed border-r border-gray-200 transition-colors"
+            >
+              ‹ Trước
+            </button>
+            {Array.from({ length: historyTotalPages }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setHistoryPage(i)}
+                className={`px-3.5 py-2 text-sm font-medium border-r border-gray-200 last:border-r-0 transition-colors ${
+                  historyPage === i
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => setHistoryPage(p => Math.min(historyTotalPages - 1, p + 1))}
+              disabled={historyPage === historyTotalPages - 1}
+              className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              Sau ›
+            </button>
           </div>
         </div>
       )}
+
+      {/* Detail Modal — tất cả trạng thái trừ WAITING_FOR_PICKUP */}
+      {detailModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setDetailModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className={`p-5 ${
+              detailModal.status === 'OVERDUE' ? 'bg-red-600' :
+              detailModal.status === 'RETURNED' ? 'bg-blue-600' :
+              detailModal.status === 'CANCELLED' ? 'bg-gray-500' : 'bg-green-600'
+            }`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white mb-2">
+                    {statusConfig[detailModal.status].icon}{statusConfig[detailModal.status].label}
+                  </span>
+                  <h3 className="text-white font-bold text-lg leading-tight">{detailModal.publicationTitle}</h3>
+                </div>
+                <button onClick={() => setDetailModal(null)} className="text-white/70 hover:text-white ml-3 text-xl leading-none">✕</button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              {/* Transaction info */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <Hash size={15} className="text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-500 w-28 flex-shrink-0">Mã giao dịch</span>
+                  <span className="font-mono font-semibold text-gray-900">#{detailModal.transactionId}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <Printer size={15} className="text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-500 w-28 flex-shrink-0">Barcode</span>
+                  <span className="font-mono font-medium text-gray-800">{detailModal.barcode}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <MapPin size={15} className="text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-500 w-28 flex-shrink-0">Vị trí</span>
+                  <span className="font-medium text-gray-800">{detailModal.branch} — {detailModal.shelf}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                {detailModal.borrowedDate && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Calendar size={15} className="text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 w-28 flex-shrink-0">Ngày mượn</span>
+                    <span className="font-medium text-gray-800">{formatDate(detailModal.borrowedDate)}</span>
+                  </div>
+                )}
+                {(detailModal.status === 'BORROWING' || detailModal.status === 'OVERDUE' || detailModal.status === 'RETURNED') && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Clock size={15} className={`flex-shrink-0 ${detailModal.status === 'OVERDUE' ? 'text-red-400' : 'text-gray-400'}`} />
+                    <span className="text-gray-500 w-28 flex-shrink-0">Hạn trả</span>
+                    <span className={`font-semibold ${detailModal.status === 'OVERDUE' ? 'text-red-600' : 'text-gray-800'}`}>
+                      {formatDate(detailModal.dueDate)}
+                      {detailModal.status === 'OVERDUE' && (
+                        <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                          Quá {Math.abs(daysUntil(detailModal.dueDate))} ngày
+                        </span>
+                      )}
+                      {detailModal.status === 'BORROWING' && daysUntil(detailModal.dueDate) >= 0 && daysUntil(detailModal.dueDate) <= 3 && (
+                        <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                          Còn {daysUntil(detailModal.dueDate)} ngày
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+                {detailModal.status === 'RETURNED' && detailModal.returnedDate && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <CheckCircle size={15} className="text-green-500 flex-shrink-0" />
+                    <span className="text-gray-500 w-28 flex-shrink-0">Ngày trả</span>
+                    <span className="font-medium text-gray-800">{formatDate(detailModal.returnedDate)}</span>
+                  </div>
+                )}
+              </div>
+
+              {detailModal.fineAmount != null && detailModal.fineAmount > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-red-700">
+                    <AlertTriangle size={15} className="flex-shrink-0" />
+                    <span className="font-medium">Phí phạt</span>
+                  </div>
+                  <span className="font-bold text-red-700 text-base">
+                    {detailModal.fineAmount.toLocaleString('vi-VN')}đ
+                  </span>
+                </div>
+              )}
+
+              <button
+                onClick={() => setDetailModal(null)}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl transition-colors mt-2"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* QR Modal cho WAITING_FOR_PICKUP — portal ra document.body để tránh bị clip bởi parent */}
       {qrModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-6">

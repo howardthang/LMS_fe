@@ -14,7 +14,7 @@ export interface BorrowResponse {
     publicationId: string;
     publicationTitle: string;
     branch: string;
-    shelf: string;
+    location: string;
     pickedUpDeadline: string;
     dueDate: string;
     status: string;
@@ -34,7 +34,7 @@ export interface LookupResponse {
     publicationId: string;
     publicationTitle: string;
     branch: string;
-    shelf: string;
+    location: string;
     pickedUpDeadline: string;
     status: string;
   };
@@ -46,7 +46,7 @@ export interface UserTransaction {
   publicationTitle: string;
   barcode: string;
   branch: string;
-  shelf: string;
+  location: string;
   pickedUpDeadline: string;
   borrowedDate: string | null;
   dueDate: string;
@@ -84,7 +84,7 @@ export interface DirectBorrowResponse {
     publicationId: string;
     publicationTitle: string;
     branch: string;
-    shelf: string;
+    location: string;
     dueDate: string;
     status: string;
   };
@@ -111,7 +111,7 @@ export interface StudentActiveTransactionsResponse {
       publicationTitle: string;
       barcode: string;
       branch: string;
-      shelf: string;
+      location: string;
       borrowedDate: string;
       dueDate: string;
       status: 'BORROWING' | 'OVERDUE';
@@ -130,7 +130,7 @@ export interface ActiveTransactionResponse {
     publicationTitle: string;
     barcode: string;
     branch: string;
-    shelf: string;
+    location: string;
     borrowedDate: string;
     dueDate: string;
     status: 'BORROWING' | 'OVERDUE';

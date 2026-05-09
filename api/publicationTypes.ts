@@ -55,6 +55,7 @@ export interface Publication {
   tags: Tag[];
   totalItems: number;
   availableItems: number;
+  callNumber: string | null;
 }
 
 
@@ -129,6 +130,9 @@ export interface PublicationDetailResponse {
     coverImageUrl: string;
     size: string;
     weight: number;
+    callNumber: string | null;
+    totalItems: number;
+    availableItems: number;
   };
   publisher: {
     id: string;
@@ -186,7 +190,7 @@ export interface PublicationItem {
   id: string;
   barcode: string;
   branch: string;
-  shelf: string;
+  location: string;
   status: string;
   condition: string;
   dueDate: string | null;

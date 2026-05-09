@@ -29,8 +29,11 @@ import {
   Button,
   StarRating,
 } from '../../components/ui';
+import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 import publicationsService from '../../api/publicationsService';
 import transactionsService from '../../api/transactionsService';
+import { createReservation } from '../../api/reservationService';
 import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicationRatings, PublicationRatingSummary } from '../../api/publicationTypes';
 
 // --- Sub-components for Tabs ---
@@ -57,6 +60,14 @@ const OverviewTab = ({ data }: { data: PublicationDetailResponse }) => (
           </span>
           <span className="font-medium text-gray-900">{data.publication.isbn || 'N/A'}</span>
         </div>
+        {data.publication.callNumber && (
+          <div className="col-span-1">
+            <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
+              Mã xếp giá (DDC)
+            </span>
+            <span className="font-medium text-gray-900 font-mono">{data.publication.callNumber}</span>
+          </div>
+        )}
         <div className="col-span-1">
           <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">
             Số trang
@@ -594,6 +605,8 @@ const BookDetailPage = () => {
   const [isLoadingRatings, setIsLoadingRatings] = useState(false);
   const [ratingsPage, setRatingsPage] = useState(0);
   const [borrowSuccessData, setBorrowSuccessData] = useState<import('../../api/transactionsService').BorrowResponse['data'] | null>(null);
+  const [showReserveModal, setShowReserveModal] = useState(false);
+  const [reserving, setReserving] = useState(false);
 
   useEffect(() => {
     const fetchPublicationDetail = async () => {
@@ -664,6 +677,29 @@ const BookDetailPage = () => {
     fetchRatings();
   }, [id, ratingsPage]);
 
+  const handleReserve = async (branch: string) => {
+    if (!data?.publication?.id) return;
+    setReserving(true);
+    try {
+      await createReservation(data.publication.id, branch);
+      toast.success('Đặt trước thành công! Chúng tôi sẽ thông báo khi sách sẵn sàng.');
+      setShowReserveModal(false);
+    } catch (err: any) {
+      const code = err?.response?.data?.code;
+      let msg: string;
+      if (code === 3011) {
+        msg = 'Sách đang có sẵn tại cơ sở này — bạn có thể đến thư viện mượn trực tiếp.';
+      } else if (code === 3005) {
+        msg = 'Bạn đã có đặt trước đang chờ cho ấn phẩm này rồi.';
+      } else {
+        msg = err?.response?.data?.message || err?.message || 'Không thể đặt trước lúc này.';
+      }
+      toast.error(msg);
+    } finally {
+      setReserving(false);
+    }
+  };
+
   const handleBorrow = async (itemId: string) => {
     try {
       // Just a simple confirm, optional
@@ -694,6 +730,73 @@ const BookDetailPage = () => {
       console.error('Borrow failed:', error);
       alert(error.message || "Không thể mượn sách lúc này. Vui lòng thử lại sau.");
     }
+  };
+
+  // Modal đặt trước — chọn cơ sở ưu tiên
+  const ReserveModal = () => {
+    const BRANCHES = [
+      { value: 'ANY',                          label: 'Bất kỳ cơ sở',              sub: 'Nhận sách tại cơ sở nào trả trước' },
+      { value: 'Cơ sở 1 - Lý Thường Kiệt',    label: 'Cơ sở 1 – Lý Thường Kiệt', sub: '268 Lý Thường Kiệt, Q.10, TP.HCM' },
+      { value: 'Cơ sở 2 - Dĩ An',             label: 'Cơ sở 2 – Dĩ An',           sub: 'Khu phố Tân Lập, TP. Dĩ An, Bình Dương' },
+    ];
+    const [selectedBranch, setSelectedBranch] = useState('ANY');
+
+    const items = itemsData?.content ?? [];
+    const totalItems = data?.publication?.totalItems ?? 0;
+
+    const availableInBranch = (branch: string) =>
+      items.filter(i => i.status === 'AVAILABLE' && (branch === 'ANY' || i.branch === branch)).length;
+
+    const hasAvailable = availableInBranch(selectedBranch) > 0;
+    const noItemsAtAll = totalItems === 0;
+
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full">
+          <h3 className="font-bold text-gray-900 mb-1">Đặt trước sách</h3>
+          <p className="text-sm text-gray-500 mb-4">Chọn cơ sở bạn muốn nhận sách</p>
+
+          <div className="space-y-2 mb-4">
+            {BRANCHES.map(b => (
+              <label key={b.value} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedBranch === b.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input type="radio" name="branch" value={b.value} checked={selectedBranch === b.value}
+                  onChange={() => setSelectedBranch(b.value)} className="accent-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{b.label}</p>
+                  <p className="text-xs text-gray-400">{b.sub}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {/* Inline warnings */}
+          {noItemsAtAll && (
+            <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex gap-2 text-xs text-gray-600">
+              <AlertCircle size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+              Ấn phẩm này chưa có bản sao nào trong thư viện. Hệ thống sẽ thông báo khi có sách.
+            </div>
+          )}
+          {!noItemsAtAll && hasAvailable && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex gap-2 text-xs text-amber-800">
+              <AlertCircle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <span>Hiện có bản sao <strong>sẵn sàng mượn</strong> tại cơ sở này — bạn có thể đến thư viện mượn trực tiếp mà không cần đặt trước.</span>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button onClick={() => setShowReserveModal(false)} disabled={reserving}
+              className="flex-1 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40">
+              Hủy
+            </button>
+            <button onClick={() => handleReserve(selectedBranch)} disabled={reserving}
+              className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
+              {reserving ? 'Đang xử lý...' : 'Xác nhận đặt trước'}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
   };
 
   if (isLoading) {
@@ -806,12 +909,24 @@ const BookDetailPage = () => {
               </div>
 
               <div className="flex flex-wrap gap-3 mb-8">
-                <Button
-                  size="lg"
-                  className="px-8 shadow-blue-200 shadow-lg hover:shadow-xl transition-shadow"
-                >
-                  <BookOpen size={18} className="mr-2" /> Đặt trước
-                </Button>
+                {data.publication.availableItems === 0 ? (
+                  <Button
+                    size="lg"
+                    className="px-8 shadow-blue-200 shadow-lg hover:shadow-xl transition-shadow"
+                    onClick={() => setShowReserveModal(true)}
+                  >
+                    <Clock size={18} className="mr-2" /> Đặt trước
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="px-8 text-blue-600 border-blue-300 hover:bg-blue-50"
+                    onClick={() => setShowReserveModal(true)}
+                  >
+                    <Clock size={18} className="mr-2" /> Đặt trước
+                  </Button>
+                )}
                 <Button
                   size="lg"
                   variant="outline"
@@ -962,7 +1077,7 @@ const BookDetailPage = () => {
                           <div className="font-medium text-gray-900">
                             {item.branch}
                           </div>
-                          <div className="text-xs text-gray-400">{item.shelf}</div>
+                          <div className="text-xs text-gray-400">{item.location}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <ItemStatusBadge status={item.status} dueDate={item.dueDate} />
@@ -973,7 +1088,7 @@ const BookDetailPage = () => {
                               Mượn ngay
                             </Button>
                           ) : item.status === 'BORROWED' || item.status === 'RESERVED' ? (
-                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-sm w-28">
+                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-sm w-28" onClick={() => setShowReserveModal(true)}>
                               Đặt trước
                             </Button>
                           ) : (
@@ -1144,7 +1259,7 @@ const BookDetailPage = () => {
                   </div>
                   <h4 className="font-bold text-gray-900 leading-tight mb-2">{borrowSuccessData.publicationTitle}</h4>
                   <p className="text-sm text-gray-600 flex items-center gap-1.5 mb-1">
-                    <Layers size={14} className="text-gray-400" /> Vị trí: <span className="font-medium text-gray-800">{borrowSuccessData.branch} - {borrowSuccessData.shelf}</span>
+                    <Layers size={14} className="text-gray-400" /> Vị trí: <span className="font-medium text-gray-800">{borrowSuccessData.branch} - {borrowSuccessData.location}</span>
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-1.5">
                     <Printer size={14} className="text-gray-400" /> Barcode: <span className="font-medium text-gray-800">{borrowSuccessData.barcode}</span>
@@ -1172,6 +1287,7 @@ const BookDetailPage = () => {
           </div>
         </div>
       )}
+      {showReserveModal && <ReserveModal />}
     </div>
   );
 };

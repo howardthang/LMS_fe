@@ -216,7 +216,7 @@ const MyBooksPage = () => {
                     )}
                   </div>
                   <h4 className="font-bold text-gray-900 truncate">{tx.publicationTitle}</h4>
-                  <p className="text-xs text-gray-500 font-mono mt-0.5">{tx.barcode} · {tx.branch} - {tx.shelf}</p>
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">{tx.barcode} · {tx.branch} - {tx.location}</p>
                 </div>
 
                 {/* Dates */}
@@ -336,7 +336,7 @@ const MyBooksPage = () => {
                 <div className="flex items-center gap-3 text-sm">
                   <MapPin size={15} className="text-gray-400 flex-shrink-0" />
                   <span className="text-gray-500 w-28 flex-shrink-0">Vị trí</span>
-                  <span className="font-medium text-gray-800">{detailModal.branch} — {detailModal.shelf}</span>
+                  <span className="font-medium text-gray-800">{detailModal.branch} — {detailModal.location}</span>
                 </div>
               </div>
 
@@ -425,7 +425,7 @@ const MyBooksPage = () => {
                   </div>
                   <h4 className="font-bold text-gray-900 leading-tight mb-2">{qrModal.publicationTitle}</h4>
                   <p className="text-sm text-gray-600 flex items-center gap-1.5 mb-1">
-                    <Layers size={14} className="text-gray-400" /> Vị trí: <span className="font-medium text-gray-800">{qrModal.branch} - {qrModal.shelf}</span>
+                    <Layers size={14} className="text-gray-400" /> Vị trí: <span className="font-medium text-gray-800">{qrModal.branch} - {qrModal.location}</span>
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-1.5">
                     <Printer size={14} className="text-gray-400" /> Barcode: <span className="font-medium text-gray-800">{qrModal.barcode}</span>

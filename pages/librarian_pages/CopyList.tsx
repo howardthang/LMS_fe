@@ -16,7 +16,7 @@ type ItemApi = {
   id: string;
   barcode: string;
   branch: string;
-  shelf: string;
+  location: string;
   status: 'AVAILABLE' | 'BORROWED' | 'RESERVED' | 'IN_MAINTENANCE' | 'LOST' | string;
   condition: 'NEW' | 'OLD' | string;
   publicationTitle: string;
@@ -197,7 +197,7 @@ const CopyList = () => {
           </h3>
           <div className="flex gap-2">
             <button className="px-3 py-1.5 bg-white border border-slate-200 rounded text-sm text-slate-600 hover:bg-slate-50 shadow-sm flex items-center gap-2">
-              <Printer size={14} /> Export
+              <Printer size={14} /> Xuất file
             </button>
           </div>
         </div>
@@ -279,8 +279,8 @@ const CopyList = () => {
                     <div className="text-sm text-slate-900">
                       {copy.branch || 'N/A'}
                     </div>
-                    {copy.shelf && (
-                      <div className="text-xs text-slate-500 font-mono mt-0.5">{copy.shelf}</div>
+                    {copy.location && (
+                      <div className="text-xs text-slate-500 font-mono mt-0.5">{copy.location}</div>
                     )}
                   </td>
                   <td className="px-6 py-4">

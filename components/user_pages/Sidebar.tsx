@@ -17,6 +17,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import usersService, { UserProfileResponse } from '../../api/usersService';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { getMyReservations } from '../../api/reservationService';
+import transactionsService from '../../api/transactionsService';
 
 const SidebarItem = ({ to, icon: Icon, label, active, count }: any) => (
   <Link
@@ -53,23 +55,38 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = React.useState(false);
   const [profile, setProfile] = useState<UserProfileResponse['data'] | null>(null);
+  const [pendingReservations, setPendingReservations] = useState(0);
+  const [activeBorrows, setActiveBorrows] = useState(0);
   const { unreadCount } = useNotifications();
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const res = await usersService.getMyProfile();
-        if (res && res.data) {
-          setProfile(res.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch profile in sidebar', error);
-      }
+        if (res && res.data) setProfile(res.data);
+      } catch {}
+    };
+    const fetchCounts = async () => {
+      try {
+        const [resData, txData] = await Promise.all([
+          getMyReservations(0, 50),
+          transactionsService.getMyTransactions(0, 50),
+        ]);
+        setPendingReservations(
+          resData.content.filter(r => r.status === 'PENDING' || r.status === 'READY_FOR_PICKUP').length
+        );
+        setActiveBorrows(
+          txData.data.content.filter(
+            (t: any) => t.status === 'BORROWING' || t.status === 'OVERDUE' || t.status === 'WAITING_FOR_PICKUP'
+          ).length
+        );
+      } catch {}
     };
     fetchProfile();
+    fetchCounts();
   }, []);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname.includes(path);
 
   const { logout } = useAuth();
 
@@ -137,14 +154,14 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
             to="/userpage/my-books"
             icon={Book}
             label="Sách đang mượn"
-            count={3}
+            count={activeBorrows || undefined}
             active={isActive('/my-books')}
           />
           <SidebarItem
             to="/userpage/reservations"
             icon={Clock}
             label="Đặt trước"
-            count={2}
+            count={pendingReservations || undefined}
             active={isActive('/reservations')}
           />
           <SidebarItem

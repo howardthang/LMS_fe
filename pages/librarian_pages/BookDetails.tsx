@@ -25,6 +25,7 @@ type FormState = {
   title: string;
   authors: { id: string | null; name: string }[];
   isbn: string;
+  callNumber: string;
   publisher: { id: string | null; name: string };
   publicationYear: string;
   language: string;
@@ -66,6 +67,7 @@ const emptyForm: FormState = {
   title: '',
   authors: [{ id: null, name: '' }],
   isbn: '',
+  callNumber: '',
   publisher: { id: null, name: '' },
   publicationYear: '',
   language: '',
@@ -102,6 +104,7 @@ const BookDetails = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [saving, setSaving] = useState(false);
   const [isEditingMetadata, setIsEditingMetadata] = useState(isCreate);
+  const [isLookingUpDDC, setIsLookingUpDDC] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -125,6 +128,7 @@ const BookDetails = () => {
               ? detail.authors.map((a: any) => ({ id: a.id, name: a.name }))
               : [{ id: null, name: '' }],
             isbn: pub.isbn ?? '',
+            callNumber: pub.callNumber ?? '',
             publisher: detail.publisher
               ? { id: detail.publisher.id, name: detail.publisher.name }
               : { id: null, name: '' },
@@ -266,6 +270,28 @@ const BookDetails = () => {
     };
   };
 
+  const handleLookupDDC = async () => {
+    const isbn = form.isbn?.trim();
+    if (!isbn) { alert('Vui lòng nhập ISBN trước khi tra cứu.'); return; }
+    setIsLookingUpDDC(true);
+    try {
+      const res = await fetch(
+        `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
+      );
+      const json = await res.json();
+      const key = `ISBN:${isbn}`;
+      const book = json[key];
+      if (!book) { alert('Không tìm thấy thông tin DDC cho ISBN này.'); return; }
+      const ddcList: string[] = book.dewey_decimal_class ?? [];
+      if (ddcList.length === 0) { alert('Không có số phân loại DDC cho ISBN này.'); return; }
+      setForm(prev => ({ ...prev, callNumber: ddcList[0] }));
+    } catch {
+      alert('Tra cứu thất bại. Vui lòng kiểm tra kết nối.');
+    } finally {
+      setIsLookingUpDDC(false);
+    }
+  };
+
   const loadPublisherOptions = async (input: string) => {
     const res = await publicationsService.searchPublishers(input);
     return res.data.map((p: any) => ({
@@ -360,6 +386,7 @@ const BookDetails = () => {
       title: form.title.trim(),
       subtitle: form.subtitle?.trim() || null,
       isbn: form.isbn?.trim() || null,
+      callNumber: form.callNumber?.trim() || null,
       description: form.description || null,
       language: form.language || null,
       numberOfPages: form.pages ? Number(form.pages) : null,
@@ -404,6 +431,7 @@ const BookDetails = () => {
       title: form.title.trim(),
       subtitle: form.subtitle?.trim() || null,
       isbn: form.isbn.trim() || null,
+      callNumber: form.callNumber?.trim() || null,
       description: form.description || null,
       language: form.language || null,
       numberOfPages: form.pages ? Number(form.pages) : null,
@@ -528,6 +556,8 @@ const BookDetails = () => {
                   onClick={() => {
                     if (!isEditingMetadata) {
                       setMetadataSnapshot({
+                        isbn: form.isbn,
+                        callNumber: form.callNumber,
                         title: form.title,
                         subtitle: form.subtitle,
                         description: form.description,
@@ -538,7 +568,6 @@ const BookDetails = () => {
                         size: form.size,
                         weight: form.weight,
                         aiTargetAudience: form.aiTargetAudience,
-                        // thêm relations vào snapshot
                         publisher: form.publisher,
                         authors: [...form.authors],
                         categories: [...form.categories],
@@ -570,7 +599,7 @@ const BookDetails = () => {
             <div className="p-6 space-y-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  Title <span className="text-red-500">*</span>
+                  Tiêu đề <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -580,9 +609,6 @@ const BookDetails = () => {
                   className={`w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 ${!isEditingMetadata ? 'bg-slate-50 cursor-not-allowed' : 'bg-white'
                     }`}
                 />
-                <p className="text-xs text-slate-400 mt-1">
-                  Main title of the publication
-                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -598,6 +624,32 @@ const BookDetails = () => {
                     className={`w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${!isEditingMetadata ? 'bg-slate-50 cursor-not-allowed' : 'bg-white'
                       }`}
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    Mã xếp giá (DDC)
+                    <span className="ml-1 text-xs font-normal text-slate-400">VD: 813.083 M6237M</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={form.callNumber}
+                      readOnly={!isEditingMetadata}
+                      onChange={(e) => setForm((prev) => ({ ...prev, callNumber: e.target.value }))}
+                      placeholder="Nhập hoặc tra cứu từ ISBN"
+                      className={`flex-1 px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${!isEditingMetadata ? 'bg-slate-50 cursor-not-allowed' : 'bg-white'}`}
+                    />
+                    {isEditingMetadata && (
+                      <button
+                        type="button"
+                        onClick={handleLookupDDC}
+                        disabled={isLookingUpDDC}
+                        className="px-3 py-2 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-700 font-medium disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isLookingUpDDC ? 'Đang tra...' : '🔍 Tra cứu DDC'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">

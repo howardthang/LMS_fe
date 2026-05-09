@@ -48,7 +48,7 @@ export interface BookCopy {
   barcode: string;
   status: 'AVAILABLE' | 'BORROWED' | 'RESERVED' | 'IN_MAINTENANCE' | 'LOST' | string;
   condition: string;
-  shelf: string;
+  location: string;
   branch: string;
   acquiredDate?: string;
   publication: Publication;
@@ -59,7 +59,7 @@ type CopyForm = {
   branch: string; 
   condition: string;
   status: string;
-  shelf: string; 
+  location: string; 
   internalNote: string;
 };
 
@@ -87,7 +87,7 @@ const CopyDetails = () => {
     branch: '',
     condition: 'NEW',
     status: 'AVAILABLE',
-    shelf: '',
+    location: '',
     internalNote: '',
   });
 
@@ -110,7 +110,7 @@ const CopyDetails = () => {
           branch: '',
           condition: 'NEW',
           status: 'AVAILABLE',
-          shelf: '',
+          location: '',
           internalNote: '',
         });
         return;
@@ -127,10 +127,10 @@ const CopyDetails = () => {
         if (data) {
           setCopyData(data);
           setForm({
-            branch: data.branch || 'Cơ sở 1 - Dĩ An',
+            branch: data.branch || '',
             condition: data.condition || 'NEW',
             status: data.status || 'AVAILABLE',
-            shelf: data.shelf || '',
+            location: data.location || '',
             internalNote: '',
           });
         }
@@ -238,7 +238,7 @@ const CopyDetails = () => {
           publicationId: statePublicationId,
           barcode: form.barcode,
           branch: form.branch,
-          shelf: form.shelf,
+          location: form.location,
           condition: form.condition,
         };
         const res: any = await axiosInstance.post(`/items`, payload);
@@ -258,7 +258,7 @@ const CopyDetails = () => {
         const payload = {
           condition: form.condition,
           status: form.status,
-          shelf: form.shelf,
+          location: form.location,
           branch: form.branch,
         };
 
@@ -274,7 +274,7 @@ const CopyDetails = () => {
                 ...prev,
                 condition: payload.condition,
                 status: payload.status,
-                shelf: payload.shelf,
+                location: payload.location,
                 branch: payload.branch,
               } as BookCopy)
             : prev
@@ -318,7 +318,7 @@ const CopyDetails = () => {
         // barcode bắt buộc unique -> backend tự sinh hoặc user nhập
         condition: form.condition,
         status: 'AVAILABLE',
-        shelf: form.shelf,
+        location: form.location,
         branch: form.branch,
       };
 
@@ -444,14 +444,16 @@ const CopyDetails = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Vị trí thư viện (Cơ sở) <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={form.branch}
                       onChange={(e) => onChange('branch', e.target.value)}
                       disabled={!isEditing}
-                      placeholder="VD: Thư viện H6"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
-                    />
+                    >
+                      <option value="">-- Chọn cơ sở --</option>
+                      <option value="Cơ sở 1 - Lý Thường Kiệt">Cơ sở 1 - Lý Thường Kiệt</option>
+                      <option value="Cơ sở 2 - Dĩ An">Cơ sở 2 - Dĩ An</option>
+                    </select>
                   </div>
 
                   <div>
@@ -486,12 +488,13 @@ const CopyDetails = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Vị trí kệ sách</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Vị trí vật lý (Tòa / Phòng)</label>
                     <input
                       type="text"
-                      value={form.shelf}
-                      onChange={(e) => onChange('shelf', e.target.value)}
+                      value={form.location}
+                      onChange={(e) => onChange('location', e.target.value)}
                       disabled={!isEditing}
+                      placeholder="VD: H6 - 603"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                     />
                   </div>
@@ -585,22 +588,16 @@ const CopyDetails = () => {
                         <p className="text-[10px] uppercase font-bold text-slate-400">ISBN</p>
                         <p className="text-sm font-semibold text-slate-800">{(publication as any)?.publication?.isbn ?? (publication as any)?.isbn ?? 'N/A'}</p>
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400">Tái bản</p>
-                        <p className="text-sm font-semibold text-slate-800">
-                          {(publication as any)?.publication?.edition ?? (publication as any)?.edition ?? 'N/A'}
+                      <div className="col-span-2">
+                        <p className="text-[10px] uppercase font-bold text-slate-400">Mã xếp giá (DDC)</p>
+                        <p className="text-sm font-semibold text-slate-800 font-mono">
+                          {(publication as any)?.publication?.callNumber ?? (publication as any)?.callNumber ?? '—'}
                         </p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold text-slate-400">Số trang</p>
                         <p className="text-sm font-semibold text-slate-800">
                           {(publication as any)?.publication?.numberOfPages ?? (publication as any)?.numberOfPages ?? 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400">Tổng bản sao</p>
-                        <p className="text-sm font-semibold text-slate-800">
-                          {(publication as any)?.items?.totalItems ?? (publication as any)?.totalItems ?? 'N/A'}
                         </p>
                       </div>
                     </div>

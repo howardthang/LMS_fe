@@ -1,169 +1,193 @@
-import { AlertCircle, FileText } from 'lucide-react';
-import { Button } from '../../components/ui';
+import { AlertCircle, AlertTriangle, CheckCircle, Clock, RotateCcw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import fineService, { Fine, FineStatus } from '../../api/fineService';
 
-const FineItem = ({ type, book, amount, date, status, action }: any) => (
-  <div className="bg-white p-4 rounded-lg border border-gray-100 hover:bg-gray-50 flex flex-col md:flex-row items-center justify-between gap-4">
-    <div className="flex items-center gap-4 w-full md:w-auto">
-      <div
-        className={`p-3 rounded-full ${
-          type === 'damaged'
-            ? 'bg-red-100 text-red-600'
-            : 'bg-orange-100 text-orange-600'
-        }`}
-      >
-        <AlertCircle size={20} />
+const TYPE_LABEL: Record<string, { label: string; color: string }> = {
+  OVERDUE_RETURN: { label: 'Trễ hạn',    color: 'bg-orange-100 text-orange-700' },
+  DAMAGED_BOOK:  { label: 'Hư hỏng',    color: 'bg-red-100 text-red-700' },
+  LOST_BOOK:     { label: 'Mất sách',   color: 'bg-red-100 text-red-700' },
+};
+
+const formatVND = (amount: number) => new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+
+const formatDate = (iso: string | null) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const FineItem = ({ fine }: { fine: Fine }) => {
+  const typeCfg = TYPE_LABEL[fine.type] ?? { label: fine.type, color: 'bg-gray-100 text-gray-600' };
+  return (
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
+      <div className={`p-2.5 rounded-full flex-shrink-0 ${fine.status === 'UNPAID' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+        {fine.status === 'UNPAID' ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
       </div>
-      <div>
-        <h4 className="font-bold text-gray-900">
-          {type === 'damaged' ? 'Hỏng sách' : 'Trễ hạn'}
-        </h4>
-        <p className="text-sm text-blue-600 font-medium">{book}</p>
-        <span className="text-xs text-gray-500">{date}</span>
+      <div className="flex-grow min-w-0">
+        <p className="font-semibold text-gray-900 text-sm truncate">{fine.publicationTitle}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${typeCfg.color}`}>{typeCfg.label}</span>
+          <span className="text-xs text-gray-400 flex items-center gap-1">
+            <Clock size={10} /> {formatDate(fine.createdAt)}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-4 flex-shrink-0">
+        <span className="font-bold text-gray-900">{formatVND(fine.fineAmount)}</span>
+        {fine.status === 'UNPAID' ? (
+          <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-medium">Chưa thanh toán</span>
+        ) : (
+          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+            Đã thanh toán {fine.paidDate ? `• ${formatDate(fine.paidDate)}` : ''}
+          </span>
+        )}
       </div>
     </div>
-    <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-      <span className="font-bold text-gray-900">{amount}</span>
-      {status === 'unpaid' ? (
-        <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">
-          Chưa thanh toán
-        </span>
-      ) : (
-        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-          Đã thanh toán
-        </span>
-      )}
-      {status === 'unpaid' ? (
-        <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700">
-          Thanh toán
-        </Button>
-      ) : (
-        <span className="text-xs text-gray-400">Đã xử lý</span>
-      )}
-    </div>
-  </div>
-);
+  );
+};
 
 const FinesPage = () => {
+  const [activeTab, setActiveTab] = useState<FineStatus>('UNPAID');
+  const [fines, setFines] = useState<Fine[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Tổng nợ UNPAID (load riêng 1 lần)
+  const [unpaidTotal, setUnpaidTotal] = useState(0);
+  const [paidTotal, setPaidTotal] = useState(0);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const [u, p] = await Promise.all([
+          fineService.getMyFines('UNPAID', 0, 100),
+          fineService.getMyFines('PAID', 0, 100),
+        ]);
+        if (u.code === 200) setUnpaidTotal(u.data.content.reduce((s, f) => s + f.fineAmount, 0));
+        if (p.code === 200) setPaidTotal(p.data.content.reduce((s, f) => s + f.fineAmount, 0));
+      } catch (e) { console.error(e); }
+    };
+    fetchSummary();
+  }, []);
+
+  useEffect(() => {
+    const fetch = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fineService.getMyFines(activeTab, page, 10);
+        if (res.code === 200) {
+          setFines(res.data.content);
+          setTotalPages(res.data.totalPages);
+          setTotalElements(res.data.totalElements);
+        }
+      } catch (e) { console.error(e); }
+      finally { setIsLoading(false); }
+    };
+    fetch();
+  }, [activeTab, page]);
+
+  const switchTab = (tab: FineStatus) => { setActiveTab(tab); setPage(0); };
+
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Phí phạt</h1>
-          <p className="text-gray-500 text-sm">
-            Quản lý các khoản phí phạt của bạn
-          </p>
-        </div>
-        <Button variant="outline" className="flex items-center">
-          <AlertCircle size={16} className="mr-2" /> Hướng dẫn thanh toán
-        </Button>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Phí phạt</h1>
+        <p className="text-gray-500 text-sm">Quản lý các khoản phí phạt của bạn</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border-l-4 border-red-500 shadow-sm">
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-xl border-l-4 border-red-500 shadow-sm">
           <p className="text-gray-500 text-sm mb-1">Chưa thanh toán</p>
-          <h3 className="text-3xl font-bold text-red-600">45,000 VND</h3>
+          <h3 className="text-3xl font-bold text-red-600">{formatVND(unpaidTotal)}</h3>
         </div>
-        <div className="bg-white p-6 rounded-xl border-l-4 border-green-500 shadow-sm">
+        <div className="bg-white p-5 rounded-xl border-l-4 border-green-500 shadow-sm">
           <p className="text-gray-500 text-sm mb-1">Đã thanh toán</p>
-          <h3 className="text-3xl font-bold text-green-600">120,000 VND</h3>
+          <h3 className="text-3xl font-bold text-green-600">{formatVND(paidTotal)}</h3>
         </div>
-        <div className="bg-blue-600 p-6 rounded-xl text-white shadow-lg">
+        <div className="bg-blue-600 p-5 rounded-xl text-white shadow-lg">
           <p className="text-blue-100 text-sm mb-1">Tổng cộng</p>
-          <h3 className="text-3xl font-bold">165,000 VND</h3>
+          <h3 className="text-3xl font-bold">{formatVND(unpaidTotal + paidTotal)}</h3>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button className="flex-1 md:flex-none">Thanh toán online</Button>
-        <Button
-          variant="outline"
-          className="flex-1 md:flex-none flex items-center justify-center"
-        >
-          <FileText size={16} className="mr-2" /> Xuất báo cáo
-        </Button>
-      </div>
-
+      {/* Tab + list */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50">
-          <h3 className="font-bold text-gray-900">Chi tiết phí phạt</h3>
-          <div className="flex gap-2 w-full md:w-auto">
-            <select className="text-sm border-gray-300 rounded-md p-2 bg-white">
-              <option>Tất cả trạng thái</option>
-            </select>
-            <select className="text-sm border-gray-300 rounded-md p-2 bg-white">
-              <option>Năm nay</option>
-            </select>
+        {/* Tab header */}
+        <div className="flex border-b border-gray-200">
+          {(['UNPAID', 'PAID'] as FineStatus[]).map(tab => (
+            <button
+              key={tab}
+              onClick={() => switchTab(tab)}
+              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+                activeTab === tab
+                  ? tab === 'UNPAID' ? 'border-b-2 border-red-500 text-red-600' : 'border-b-2 border-green-500 text-green-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab === 'UNPAID' ? 'Chưa thanh toán' : 'Đã thanh toán'}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
+        {isLoading ? (
+          <div className="py-12 text-center text-gray-400">Đang tải...</div>
+        ) : fines.length === 0 ? (
+          <div className="py-12 flex flex-col items-center text-gray-400">
+            <CheckCircle size={32} className="mb-2 text-green-400" />
+            <p className="text-sm">{activeTab === 'UNPAID' ? 'Không có phí phạt nào chưa thanh toán.' : 'Chưa có lịch sử thanh toán.'}</p>
           </div>
-        </div>
-        <div className="divide-y divide-gray-100">
-          <FineItem
-            type="late"
-            book="Machine Learning cơ bản"
-            amount="25,000 VND"
-            date="15/11/2024"
-            status="unpaid"
-          />
-          <FineItem
-            type="late"
-            book="Python cho người mới bắt đầu"
-            amount="20,000 VND"
-            date="20/11/2024"
-            status="unpaid"
-          />
-          <FineItem
-            type="late"
-            book="Cấu trúc dữ liệu và giải thuật"
-            amount="40,000 VND"
-            date="10/10/2024"
-            status="paid"
-          />
-          <FineItem
-            type="damaged"
-            book="Lập trình Web với React"
-            amount="80,000 VND"
-            date="05/09/2024"
-            status="paid"
-          />
-          <FineItem
-            type="late"
-            book="Kinh tế vi mô"
-            amount="15,000 VND"
-            date="25/08/2024"
-            status="paid"
-          />
-        </div>
-        <div className="p-4 bg-gray-50 flex justify-center">
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled>
-              &lt;
-            </Button>
-            <Button size="sm">1</Button>
-            <Button variant="outline" size="sm">
-              &gt;
-            </Button>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {fines.map(f => <FineItem key={f.fineId} fine={f} />)}
           </div>
-        </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-sm text-gray-500">
+              Hiển thị <span className="font-semibold text-gray-800">{page * 10 + 1}–{Math.min((page + 1) * 10, totalElements)}</span>{' '}
+              trong <span className="font-semibold text-gray-800">{totalElements}</span> khoản phạt
+            </p>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-white overflow-hidden">
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300 border-r border-gray-200">
+                ‹ Trước
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button key={i} onClick={() => setPage(i)}
+                  className={`px-3.5 py-1.5 text-sm font-medium border-r border-gray-200 last:border-0 ${
+                    page === i ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  {i + 1}
+                </button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300">
+                Sau ›
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* Hướng dẫn */}
       <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
         <h4 className="font-bold text-blue-900 mb-2 flex items-center">
           <AlertCircle size={18} className="mr-2" /> Hướng dẫn thanh toán
         </h4>
         <ul className="space-y-2 text-sm text-blue-800">
-          <li className="flex items-start">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2"></div>{' '}
-            <strong>Thanh toán trực tiếp:</strong> Đến quầy thủ thư tại thư viện
-            trong giờ hành chính (8:00 - 17:00)
+          <li className="flex items-start gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+            <span><strong>Thanh toán trực tiếp:</strong> Đến quầy thủ thư tại thư viện trong giờ hành chính.</span>
           </li>
-          <li className="flex items-start">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2"></div>{' '}
-            <strong>Chuyển khoản:</strong> Chuyển vào TK: 1234567890 - Ngân hàng
-            ABC - Chi nhánh XYZ (Ghi rõ: Mã SV + Họ tên)
-          </li>
-          <li className="flex items-start">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2"></div>{' '}
-            <strong>Thanh toán online:</strong> Sử dụng nút "Thanh toán online"
-            ở trên để thanh toán qua cổng thanh toán điện tử.
+          <li className="flex items-start gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+            <span><strong>Lưu ý:</strong> Phí phạt chưa thanh toán sẽ khóa quyền mượn sách mới.</span>
           </li>
         </ul>
       </div>

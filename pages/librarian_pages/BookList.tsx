@@ -175,10 +175,10 @@ const BookList = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            Publication List
+            Danh sách ấn phẩm
           </h1>
           <p className="text-slate-500">
-            Manage library publications and catalog
+            Quản lý danh mục ấn phẩm thư viện
           </p>
         </div>
         <Link
@@ -203,7 +203,7 @@ const BookList = () => {
               />
               <input
                 type="text"
-                placeholder="Tìm theo Title / Author / ISBN..."
+                placeholder="Tìm theo tiêu đề / tác giả / ISBN..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -322,7 +322,7 @@ const BookList = () => {
                 onChange={() => setHasItems(true)}
                 className="text-blue-600 focus:ring-blue-500"
               />
-              Có Items
+              Có bản sao
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
               <input
@@ -332,7 +332,7 @@ const BookList = () => {
                 onChange={() => setHasItems(false)}
                 className="text-blue-600 focus:ring-blue-500"
               />
-              Không có Items
+              Chưa có bản sao
             </label>
           </div>
           <div className="flex gap-2">
@@ -390,7 +390,7 @@ const BookList = () => {
               >
                 Ngày tạo {sortBy === 'createdAt' && (direction === 'DESC' ? '↓' : '↑')}
               </th>
-              <th className="px-6 py-4 font-semibold text-right">Actions</th>
+              <th className="px-6 py-4 font-semibold text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

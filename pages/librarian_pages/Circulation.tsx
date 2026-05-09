@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarCheck,
   CheckCircle,
+  DollarSign,
   Hash,
   Info,
   RotateCcw,
@@ -11,6 +12,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import fineService, { Fine } from '../../api/fineService';
 import transactionsService, {
   ActiveTransactionResponse,
   DirectBorrowResponse,
@@ -21,7 +23,7 @@ import transactionsService, {
   StudentActiveTransactionsResponse,
 } from '../../api/transactionsService';
 
-type MainTab = 'pickup' | 'direct' | 'return';
+type MainTab = 'pickup' | 'direct' | 'return' | 'fines';
 type LookupMode = 'qr' | 'manual';
 type ReturnMode = 'normal' | 'issue';
 
@@ -718,7 +720,7 @@ const ResultArea = ({ successData, lookupResult, lookupError, isConfirming, onCo
         </div>
         <div>
           <p className="text-xs text-slate-500 mb-0.5">Vị trí</p>
-          <p className="font-semibold text-slate-900">{lookupResult.branch} — {lookupResult.shelf}</p>
+          <p className="font-semibold text-slate-900">{lookupResult.branch} — {lookupResult.location}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500 mb-0.5">Hạn lấy sách</p>
@@ -754,6 +756,172 @@ const ResultArea = ({ successData, lookupResult, lookupError, isConfirming, onCo
     <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center text-center text-slate-400">
       <Scan size={32} className="mb-2 opacity-40" />
       <p className="text-sm">{idleText}</p>
+    </div>
+  );
+};
+
+// ─── Tab: Thu phí phạt ──────────────────────────────────────────────────────
+
+const FINE_TYPE_LABEL: Record<string, string> = {
+  OVERDUE_RETURN: 'Trễ hạn',
+  DAMAGED_BOOK:   'Hư hỏng',
+  LOST_BOOK:      'Mất sách',
+};
+
+const FineTab = () => {
+  const [mssvInput, setMssvInput] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [studentData, setStudentData] = useState<{ studentId: string; fullName: string; totalUnpaidAmount: number; fines: Fine[] } | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payingAll, setPayingAll] = useState(false);
+  const mssvRef = useRef<HTMLInputElement>(null);
+
+  const handleSearch = async () => {
+    if (!mssvInput.trim()) return;
+    setIsSearching(true);
+    setSearchError(null);
+    setStudentData(null);
+    try {
+      const res = await fineService.getStudentFines(mssvInput.trim());
+      if (res.code === 200) setStudentData(res.data);
+    } catch (err: any) {
+      setSearchError(err.message || 'Không tìm thấy sinh viên.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handlePayOne = async (fineId: string) => {
+    setPayingId(fineId);
+    try {
+      const res = await fineService.payFine(fineId);
+      if (res.code === 200 && studentData) {
+        const updated = studentData.fines.filter(f => f.fineId !== fineId);
+        const newTotal = updated.reduce((s, f) => s + f.fineAmount, 0);
+        setStudentData({ ...studentData, fines: updated, totalUnpaidAmount: newTotal });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Lỗi thanh toán.');
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  const handlePayAll = async () => {
+    if (!studentData) return;
+    setPayingAll(true);
+    try {
+      const res = await fineService.payAllFines(studentData.studentId);
+      if (res.code === 200) {
+        setStudentData({ ...studentData, fines: [], totalUnpaidAmount: 0 });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Lỗi thanh toán.');
+    } finally {
+      setPayingAll(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* MSSV input */}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">MSSV độc giả</label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <UserIcon className="absolute left-3 top-3 text-slate-400" size={18} />
+            <input ref={mssvRef} type="text" autoFocus value={mssvInput}
+              onChange={e => setMssvInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="Nhập MSSV rồi nhấn Enter..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none" />
+          </div>
+          <button onClick={handleSearch} disabled={isSearching || !mssvInput.trim()}
+            className="bg-yellow-500 text-white px-6 py-2.5 rounded-lg hover:bg-yellow-600 font-medium disabled:opacity-50 transition-colors">
+            {isSearching ? 'Đang tra...' : 'Tìm kiếm'}
+          </button>
+        </div>
+      </div>
+
+      {searchError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-red-800 text-sm">{searchError}</p>
+            <button onClick={() => setSearchError(null)} className="text-xs text-red-600 underline mt-1">Thử lại</button>
+          </div>
+        </div>
+      )}
+
+      {studentData && (
+        <div className="space-y-4">
+          {/* Student summary */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="font-bold text-slate-900">{studentData.fullName}</p>
+              <p className="text-xs text-slate-500 font-mono">{studentData.studentId}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Tổng nợ chưa trả</p>
+              <p className="font-bold text-red-600 text-lg">
+                {new Intl.NumberFormat('vi-VN').format(studentData.totalUnpaidAmount)}đ
+              </p>
+            </div>
+          </div>
+
+          {studentData.fines.length === 0 ? (
+            <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center text-slate-400">
+              <CheckCircle size={28} className="mb-2 text-green-400" />
+              <p className="text-sm font-medium text-slate-600">Sinh viên không có phí phạt nào chưa thanh toán.</p>
+            </div>
+          ) : (
+            <>
+              <button onClick={handlePayAll} disabled={payingAll}
+                className="w-full bg-yellow-500 text-white py-2.5 rounded-lg hover:bg-yellow-600 font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                <DollarSign size={16} />
+                {payingAll ? 'Đang xử lý...' : `Thanh toán tất cả (${studentData.fines.length} khoản)`}
+              </button>
+
+              <div className="space-y-2">
+                {studentData.fines.map(fine => (
+                  <div key={fine.fineId} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-4">
+                    <div className="flex-grow min-w-0">
+                      <p className="font-semibold text-slate-900 text-sm truncate">{fine.publicationTitle}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                          {FINE_TYPE_LABEL[fine.type] ?? fine.type}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {new Date(fine.createdAt).toLocaleDateString('vi-VN')}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="font-bold text-slate-900">
+                        {new Intl.NumberFormat('vi-VN').format(fine.fineAmount)}đ
+                      </span>
+                      <button
+                        onClick={() => handlePayOne(fine.fineId)}
+                        disabled={payingId === fine.fineId}
+                        className="bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50 font-semibold transition-colors">
+                        {payingId === fine.fineId ? '...' : 'Thanh toán'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {!studentData && !searchError && (
+        <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center text-center text-slate-400">
+          <DollarSign size={32} className="mb-2 opacity-40" />
+          <p className="text-sm">Nhập MSSV để xem và thu phí phạt của sinh viên</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -796,11 +964,19 @@ const Circulation = () => {
         >
           Trả sách
         </button>
+        <button
+          onClick={() => setMainTab('fines')}
+          className={`pb-3 px-1 text-sm font-semibold border-b-2 transition-colors ${
+            mainTab === 'fines' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Thu phí phạt
+        </button>
       </div>
 
       {/* Tab content */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        {mainTab === 'pickup' ? <PickupTab /> : mainTab === 'direct' ? <DirectBorrowTab /> : <ReturnTab />}
+        {mainTab === 'pickup' ? <PickupTab /> : mainTab === 'direct' ? <DirectBorrowTab /> : mainTab === 'return' ? <ReturnTab /> : <FineTab />}
       </div>
 
       {/* Info card */}
@@ -819,10 +995,15 @@ const Circulation = () => {
               <p>Sách được ghi nhận <span className="font-semibold">BORROWING ngay</span>, hạn trả 14 ngày kể từ hôm nay.</p>
               <p>Hệ thống sẽ kiểm tra: giới hạn 5 cuốn, phí phạt chưa trả, và không mượn trùng sách.</p>
             </>
-          ) : (
+          ) : mainTab === 'return' ? (
             <>
               <p>Nhập <span className="font-semibold">MSSV</span> để xem danh sách sách đang mượn của sinh viên.</p>
               <p>Chọn từng cuốn để <span className="font-semibold">Trả</span>, <span className="font-semibold">Báo hư</span> hoặc <span className="font-semibold">Báo mất</span>. Phí trễ hạn (<span className="font-semibold">1.000đ/ngày</span>) được tính tự động khi trả.</p>
+            </>
+          ) : (
+            <>
+              <p>Nhập <span className="font-semibold">MSSV</span> để xem danh sách phí phạt chưa thanh toán của sinh viên.</p>
+              <p>Có thể thanh toán từng khoản riêng lẻ hoặc <span className="font-semibold">thanh toán tất cả</span> cùng lúc.</p>
             </>
           )}
         </div>

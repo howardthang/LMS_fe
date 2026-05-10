@@ -1,12 +1,13 @@
 import { Bell, BookOpen, Mail, MapPin, Menu, Phone, X } from 'lucide-react';
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { userType } = useAuth();
   const isAuthenticated = !!userType;
 
@@ -63,10 +64,14 @@ export const Header = () => {
 
           {/* Right Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600 relative">
-              <Bell size={20} />
-              <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-            </button>
+            {isAuthenticated && (
+              <button
+                onClick={() => navigate('/userpage/notifications')}
+                className="p-2 text-gray-400 hover:text-gray-600 relative"
+              >
+                <Bell size={20} />
+              </button>
+            )}
             <div className="h-6 w-px bg-gray-300"></div>
             {isAuthenticated ? (
               <Link to={userType === 'librarian' ? '/librarian/dashboard' : '/userpage/dashboard'}>

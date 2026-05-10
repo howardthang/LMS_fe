@@ -14,12 +14,43 @@ import {
   Star,
   Users,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import searchHistoryService from '../../api/searchHistoryService';
+import { useAuth } from '../../contexts/AuthContext';
 import { Badge, Button, StarRating } from '../../components/ui';
 import publicationsService from '../../api/publicationsService';
 import { MostBorrowedPublication, NewestPublication } from '../../api/publicationTypes';
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const { userType } = useAuth();
+  const [searchInput, setSearchInput] = useState('');
+  const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword');
+  const [history, setHistory] = useState<import('../../api/searchHistoryService').SearchHistoryItem[]>([]);
+
+  useEffect(() => {
+    if (!userType) return;
+    searchHistoryService.getHistory()
+      .then(res => setHistory(res.data ?? []))
+      .catch(() => {});
+  }, [userType]);
+
+  const handleSearch = (kw?: string) => {
+    if (searchMode === 'semantic') {
+      toast.info('Tính năng đang phát triển');
+      return;
+    }
+    const q = (kw ?? searchInput).trim();
+    navigate(q ? `/publicpage/search?q=${encodeURIComponent(q)}` : '/publicpage/search');
+  };
+
+  const handleDeleteHistory = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHistory(prev => prev.filter(h => h.id !== id));
+    searchHistoryService.deleteHistory(id).catch(() => {});
+  };
+
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 relative overflow-hidden">
       {/* Background decorations */}
@@ -47,39 +78,79 @@ const HeroSection = () => {
             </p>
 
             <div className="bg-white p-2 rounded-xl shadow-xl border border-gray-100 max-w-xl">
-              <div className="flex space-x-4 mb-2 px-2 pt-1 border-b border-gray-50 pb-2">
-                <button className="flex items-center text-sm font-medium text-white bg-blue-600 px-3 py-1 rounded-md shadow-sm">
-                  <Sparkles size={14} className="mr-1" /> Semantic
+              <div className="flex items-center gap-1 mb-2 px-1">
+                <button
+                  onClick={() => setSearchMode('keyword')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    searchMode === 'keyword'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Từ khóa
                 </button>
-                <button className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 px-3 py-1 rounded-md">
-                  <Search size={14} className="mr-1" /> Keyword
+                <button
+                  onClick={() => setSearchMode('semantic')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    searchMode === 'semantic'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Ngữ nghĩa
                 </button>
               </div>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Ví dụ: Tôi cần sách về machine learning cho người mới bắt đầu..."
-                  className="w-full pl-4 pr-32 py-3 rounded-lg bg-gray-50 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-gray-900"
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  placeholder={searchMode === 'semantic' ? 'Mô tả sách bạn muốn tìm...' : 'Tìm theo tên sách, tác giả, ISBN...'}
+                  className="w-full pl-4 pr-28 py-3 rounded-lg bg-gray-50 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-gray-900"
                 />
                 <Button
                   className="absolute right-1 top-1 bottom-1"
                   size="sm"
-                  variant="ai"
+                  onClick={() => handleSearch()}
                 >
-                  <Search size={16} className="mr-1" /> Tìm với AI
+                  <Search size={16} className="mr-1" /> Tìm kiếm
                 </Button>
               </div>
               <div className="mt-3 px-2 flex flex-wrap gap-2 text-xs items-center">
-                <span className="text-gray-400 font-medium">Gợi ý:</span>
-                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                  Python cơ bản
-                </span>
-                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                  Machine learning for beginners
-                </span>
-                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                  Kinh tế vi mô
-                </span>
+                {history.length > 0 ? (
+                  <>
+                    <span className="text-gray-400 font-medium">Tìm gần đây:</span>
+                    {history.map(item => (
+                      <span
+                        key={item.id}
+                        onClick={() => handleSearch(item.keyword)}
+                        className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-md cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition-colors group"
+                      >
+                        {item.keyword}
+                        <button
+                          onClick={(e) => handleDeleteHistory(item.id, e)}
+                          className="opacity-0 group-hover:opacity-100 ml-0.5 text-gray-400 hover:text-red-500 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-gray-400 font-medium">Gợi ý:</span>
+                    {['Python cơ bản', 'Machine learning', 'Kinh tế vi mô'].map(kw => (
+                      <span
+                        key={kw}
+                        onClick={() => handleSearch(kw)}
+                        className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
 

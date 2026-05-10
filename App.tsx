@@ -13,6 +13,8 @@ import { ScrollToTop } from './components/ScrollToTop';
 import { ProtectedLayout } from './components/user_pages/Sidebar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { UploadProvider } from './contexts/UploadContext';
+import UploadPanel from './components/UploadPanel';
 import { Toaster } from 'sonner';
 
 // Public pages
@@ -58,6 +60,7 @@ import LibrarianDashboard from './pages/librarian_pages/Dashboard';
 import Notifications from './pages/librarian_pages/Notifications';
 import Requests from './pages/librarian_pages/Requests';
 import Settings from './pages/librarian_pages/Settings';
+import TransactionList from './pages/librarian_pages/TransactionList';
 
 // Error pages
 import ForbiddenPage from './pages/error_pages/ForbiddenPage';
@@ -121,6 +124,7 @@ const AppContent = () => {
     '/librarian/requests': `${LIB_PREFIX}/requests`,
     '/librarian/settings': `${LIB_PREFIX}/settings`,
     '/librarian/notifications': `${LIB_PREFIX}/notifications`,
+    '/librarian/transactions': `${LIB_PREFIX}/transactions`,
     '/about': `${PUBLIC_PREFIX}/about`,
     '/guide': `${PUBLIC_PREFIX}/guide`,
     '/faq': `${PUBLIC_PREFIX}/faq`,
@@ -176,6 +180,7 @@ const AppContent = () => {
     `${LIB_PREFIX}/requests`,
     `${LIB_PREFIX}/settings`,
     `${LIB_PREFIX}/notifications`,
+    `${LIB_PREFIX}/transactions`,
   ];
   const isLibrarianPage = librarianPaths.some((path) =>
     location.pathname.startsWith(path)
@@ -292,6 +297,10 @@ const AppContent = () => {
               path={`${LIB_PREFIX}/notifications`}
               element={<Notifications />}
             />
+            <Route
+              path={`${LIB_PREFIX}/transactions`}
+              element={<TransactionList />}
+            />
           </Routes>
         </LibrarianLayout>
       </ProtectedRoute>
@@ -342,11 +351,14 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <Router>
-          <ScrollToTop />
-          <AppContent />
-        </Router>
-        <Toaster position="bottom-right" richColors closeButton duration={5000} />
+        <UploadProvider>
+          <Router>
+            <ScrollToTop />
+            <AppContent />
+          </Router>
+          <Toaster position="bottom-right" richColors closeButton duration={5000} />
+          <UploadPanel />
+        </UploadProvider>
       </NotificationProvider>
     </AuthProvider>
   );

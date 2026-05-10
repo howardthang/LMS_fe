@@ -150,6 +150,34 @@ export interface ReturnResponse {
   };
 }
 
+export type TransactionStatus = 'WAITING_FOR_PICKUP' | 'BORROWING' | 'OVERDUE' | 'RETURNED' | 'CANCELLED';
+
+export interface LibrarianTransaction {
+  transactionId: string;
+  userId: string;
+  fullName: string;
+  studentId: string;
+  fineAmount: number | null;
+  borrowedDate: string | null;
+  dueDate: string | null;
+  returnedDate: string | null;
+  status: TransactionStatus;
+}
+
+export interface AllTransactionsResponse {
+  code: number;
+  message: string;
+  data: {
+    content: LibrarianTransaction[];
+    currentPage: number;
+    pageSize: number;
+    totalElements: number;
+    totalPages: number;
+    isFirst: boolean;
+    isLast: boolean;
+  };
+}
+
 export type IssueType = 'DAMAGED_BOOK' | 'LOST_BOOK';
 
 export interface ReportIssueResponse {
@@ -202,6 +230,18 @@ const transactionsService = {
   },
   reportIssue: async (transactionId: string, type: IssueType, fineAmount: number): Promise<ReportIssueResponse> => {
     const response = await axiosInstance.post(`/transactions/${transactionId}/report-issue`, { type, fineAmount });
+    return response as any;
+  },
+  getAllTransactions: async (
+    page: number = 0,
+    size: number = 15,
+    keyword?: string,
+    sortBy?: string,
+    sortDir?: 'ASC' | 'DESC',
+  ): Promise<AllTransactionsResponse> => {
+    const response = await axiosInstance.get('/transactions', {
+      params: { page, size, keyword: keyword || undefined, sortBy, sortDir },
+    });
     return response as any;
   },
 };

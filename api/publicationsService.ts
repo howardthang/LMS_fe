@@ -1,3 +1,4 @@
+import axios from 'axios';
 import axiosInstance from './axiosInstance';
 import {
   ApiResponse,
@@ -9,7 +10,10 @@ import {
   PaginatedPublicationItems,
   PaginatedPublicationRatings,
   Publication,
-  PublicationRatingSummary
+  PublicationRatingSummary,
+  PageResponse,
+  PublicSearchParams,
+  PublicSearchResult,
 } from './publicationTypes';
 
 const publicationsService = {
@@ -109,15 +113,6 @@ const publicationsService = {
     return axiosInstance.put(`/publications/${id}`, data);
   },
 
-  uploadFile: async (
-    id: string,
-    file: File
-  ): Promise<ApiResponse<string>> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return axiosInstance.put(`/publications/${id}/file`, formData);
-  },
-
   getPublicationById: async (
     id: string
   ): Promise<ApiResponse<PublicationDetailResponse>> => {
@@ -126,7 +121,7 @@ const publicationsService = {
 
   createPublication: async (
     data: Partial<Publication>
-  ): Promise<ApiResponse<Publication>> => {
+  ): Promise<ApiResponse<any>> => {
     return axiosInstance.post('/publications', data);
   },
 
@@ -134,13 +129,74 @@ const publicationsService = {
     return axiosInstance.delete(`/publications/${id}`);
   },
 
-  updatePublicationCover: async (
+  getDocumentUploadUrl: async (
     id: string,
-    file: File
+    filename: string
+  ): Promise<ApiResponse<{ uploadUrl: string; s3Key: string }>> => {
+    return axiosInstance.get(`/publications/${id}/document-upload-url?filename=${encodeURIComponent(filename)}`);
+  },
+
+  uploadDocumentToS3: async (
+    uploadUrl: string,
+    file: File,
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
+  ): Promise<void> => {
+    // Dùng axios thuần (không phải axiosInstance) để tránh gắn Authorization header vào presigned URL
+    await axios.put(uploadUrl, file, {
+      headers: { 'Content-Type': 'application/pdf' },
+      signal,
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      }
+    });
+  },
+
+  saveDocumentUrl: async (
+    id: string,
+    s3Key: string
+  ): Promise<ApiResponse<string>> => {
+    return axiosInstance.put(`/publications/${id}/document-url`, { s3Key });
+  },
+
+  uploadCover: async (
+    id: string,
+    file: File,
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
   ): Promise<ApiResponse<string>> => {
     const formData = new FormData();
     formData.append('file', file);
-    return axiosInstance.put(`/publications/${id}/cover`, formData);
+    return axiosInstance.post(`/publications/${id}/cover`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      signal,
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      }
+    });
+  },
+
+  searchPublications: async (
+    params: PublicSearchParams
+  ): Promise<ApiResponse<PageResponse<PublicSearchResult>>> => {
+    const q = new URLSearchParams();
+    if (params.keyword)   q.append('keyword',  params.keyword);
+    if (params.categoryId) q.append('categoryId', params.categoryId);
+    if (params.language)  q.append('language', params.language);
+    if (params.yearFrom)  q.append('yearFrom', String(params.yearFrom));
+    if (params.yearTo)    q.append('yearTo',   String(params.yearTo));
+    if (params.available) q.append('available', 'true');
+    if (params.branch)    q.append('branch',   params.branch);
+    if (params.sortBy)    q.append('sortBy',   params.sortBy);
+    q.append('page', String(params.page ?? 0));
+    q.append('size', String(params.size ?? 12));
+    return axiosInstance.get(`/publications/search?${q.toString()}`);
   },
 
   getPublicationItems: async (

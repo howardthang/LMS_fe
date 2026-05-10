@@ -140,13 +140,6 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
             label="Dashboard"
             active={isActive('/dashboard')}
           />
-          <SidebarItem
-            to="/userpage/search"
-            icon={Search}
-            label="Tìm kiếm sách"
-            active={isActive('/search')}
-          />
-
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2 mt-6">
             Quản lý cá nhân
           </div>

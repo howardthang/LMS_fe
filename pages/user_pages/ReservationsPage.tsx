@@ -1,6 +1,7 @@
-import { AlertCircle, BookMarked, CheckCircle, Clock, Info, MapPin, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, BookMarked, CheckCircle, Clock, Info, Layers, MapPin, Printer, QrCode, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import QRCode from 'react-qr-code';
 import { toast } from 'sonner';
 import { cancelReservation, getMyReservations, Reservation, ReservationStatus } from '../../api/reservationService';
 import { format } from 'date-fns';
@@ -52,27 +53,105 @@ const CancelModal = ({
   reservation: Reservation;
   onConfirm: () => void;
   onClose: () => void;
-}) =>
-  createPortal(
+}) => {
+  const isReady = reservation.status === 'READY_FOR_PICKUP';
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full">
-        <h3 className="font-bold text-gray-900 mb-2">Xác nhận hủy đặt trước</h3>
+        <h3 className="font-bold text-gray-900 mb-2">
+          {isReady ? 'Hủy sách đã sẵn sàng?' : 'Xác nhận hủy đặt trước'}
+        </h3>
         <p className="text-sm text-gray-600 mb-4">
-          Bạn có chắc muốn hủy đặt trước{' '}
-          <span className="font-semibold">"{reservation.publicationTitle}"</span>? Vị trí hàng chờ sẽ bị mất.
+          {isReady ? (
+            <>
+              Sách <span className="font-semibold">"{reservation.publicationTitle}"</span> đang chờ bạn nhận.
+              Nếu hủy, sách sẽ được chuyển cho người tiếp theo trong hàng chờ.
+            </>
+          ) : (
+            <>
+              Bạn có chắc muốn hủy đặt trước{' '}
+              <span className="font-semibold">"{reservation.publicationTitle}"</span>? Vị trí hàng chờ sẽ bị mất.
+            </>
+          )}
         </p>
         <div className="flex gap-3">
           <button
             onClick={onClose}
             className="flex-1 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
           >
-            Quay lại
+            {isReady ? 'Tôi sẽ đến lấy' : 'Quay lại'}
           </button>
           <button
             onClick={onConfirm}
             className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
           >
-            Hủy đặt
+            Hủy đặt trước
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// QR Modal cho READY_FOR_PICKUP
+const QrModal = ({ reservation, onClose }: { reservation: Reservation; onClose: () => void }) =>
+  createPortal(
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-auto overflow-hidden">
+        <div className="bg-green-600 p-6 text-center">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+            <QrCode size={32} className="text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-white">Phiếu nhận sách đặt trước</h2>
+          <p className="text-green-100 mt-2 text-sm">Đưa mã QR này cho thủ thư để xác nhận nhận sách.</p>
+        </div>
+
+        <div className="p-8">
+          <div className="flex justify-center mb-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+            <QRCode value={reservation.reservationId} size={200} />
+          </div>
+
+          <div className="space-y-3 mb-6">
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-500 font-medium">Mã đặt trước</span>
+                <span className="font-mono font-bold text-gray-900 text-xs">#{reservation.reservationId}</span>
+              </div>
+              <h4 className="font-bold text-gray-900 leading-tight mb-2">{reservation.publicationTitle}</h4>
+              {reservation.assignedBranch && (
+                <p className="text-sm text-gray-600 flex items-center gap-1.5 mb-1">
+                  <Layers size={14} className="text-gray-400" />
+                  Chi nhánh: <span className="font-medium text-gray-800">{reservation.assignedBranch}</span>
+                  {reservation.assignedLocation && (
+                    <> · Giá: <span className="font-medium text-gray-800">{reservation.assignedLocation}</span></>
+                  )}
+                </p>
+              )}
+              {reservation.assignedBarcode && (
+                <p className="text-sm text-gray-600 flex items-center gap-1.5">
+                  <Printer size={14} className="text-gray-400" />
+                  Barcode: <span className="font-medium text-gray-800">{reservation.assignedBarcode}</span>
+                </p>
+              )}
+            </div>
+
+            {reservation.holdExpirationTime && (
+              <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-start gap-3">
+                <AlertTriangle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="block text-sm font-bold text-red-800 mb-1">Hạn chót đến lấy sách</span>
+                  <span className="text-sm text-red-700">{fmtDate(reservation.holdExpirationTime)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl shadow-md transition-colors"
+          >
+            Đóng
           </button>
         </div>
       </div>
@@ -83,12 +162,15 @@ const CancelModal = ({
 const ReservationCard = ({
   reservation,
   onCancel,
+  onShowQr,
 }: {
   reservation: Reservation;
   onCancel: (r: Reservation) => void;
+  onShowQr: (r: Reservation) => void;
 }) => {
   const cfg = STATUS_CONFIG[reservation.status];
-  const isActive = reservation.status === 'PENDING' || reservation.status === 'READY_FOR_PICKUP';
+  const isPending = reservation.status === 'PENDING';
+  const isReady = reservation.status === 'READY_FOR_PICKUP';
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
@@ -153,8 +235,8 @@ const ReservationCard = ({
         </div>
       </div>
 
-      {/* Actions */}
-      {isActive && (
+      {/* Actions — PENDING */}
+      {isPending && (
         <div className="mt-4 flex justify-end">
           <button
             onClick={() => onCancel(reservation)}
@@ -162,6 +244,29 @@ const ReservationCard = ({
           >
             Hủy đặt trước
           </button>
+        </div>
+      )}
+
+      {/* Actions — READY_FOR_PICKUP: hỏi người dùng có muốn mượn không */}
+      {isReady && (
+        <div className="mt-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-green-800 font-medium">
+            📚 Sách đã sẵn sàng — bạn có muốn đến lấy không?
+          </p>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => onCancel(reservation)}
+              className="text-xs text-red-600 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
+            >
+              Không, hủy đặt
+            </button>
+            <button
+              onClick={() => onShowQr(reservation)}
+              className="text-xs text-green-700 border border-green-300 bg-white rounded-lg px-3 py-1.5 hover:bg-green-50 transition-colors font-medium flex items-center gap-1"
+            >
+              <QrCode size={13} /> Xem mã QR nhận sách
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -176,6 +281,7 @@ const ReservationsPage = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [qrTarget, setQrTarget] = useState<Reservation | null>(null);
 
   const load = async (p: number) => {
     try {
@@ -249,7 +355,7 @@ const ReservationsPage = () => {
       ) : (
         <div className="space-y-4">
           {reservations.map(r => (
-            <ReservationCard key={r.reservationId} reservation={r} onCancel={setCancelTarget} />
+            <ReservationCard key={r.reservationId} reservation={r} onCancel={setCancelTarget} onShowQr={setQrTarget} />
           ))}
         </div>
       )}
@@ -284,10 +390,13 @@ const ReservationsPage = () => {
         </h4>
         <ul className="list-disc list-inside space-y-1 ml-1 text-blue-700">
           <li>
+            Bạn chỉ được đặt trước tối đa <strong>2 cuốn sách</strong> cùng lúc.
+          </li>
+          <li>
             Khi sách sẵn sàng, bạn có <strong>48 giờ</strong> để đến nhận tại chi nhánh đã chọn.
           </li>
           <li>Hệ thống sẽ gửi thông báo khi sách của bạn đã sẵn sàng.</li>
-          <li>Đặt trước chỉ áp dụng khi tất cả các bản ở chi nhánh đang được mượn.</li>
+          <li>Nếu không còn nhu cầu, vui lòng nhấn <strong>Hủy đặt trước</strong> để nhường lượt cho người sau.</li>
         </ul>
       </div>
 
@@ -297,6 +406,10 @@ const ReservationsPage = () => {
           onConfirm={handleCancel}
           onClose={() => !cancelling && setCancelTarget(null)}
         />
+      )}
+
+      {qrTarget && (
+        <QrModal reservation={qrTarget} onClose={() => setQrTarget(null)} />
       )}
     </div>
   );

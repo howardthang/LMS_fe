@@ -14,11 +14,13 @@ import {
   Upload,
   X
 } from 'lucide-react';
+import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import publicationsService from '../../api/publicationsService';
 import { Author, Category, Publisher, Tag } from '../../api/publicationTypes';
 import AsyncCreatableSelectField from '../../components/AsyncCreatableSelectField';
+import { useUpload } from '../../contexts/UploadContext';
 
 type FormState = {
   id: string;
@@ -96,6 +98,7 @@ const BookDetails = () => {
   const isCreate = !id || id === 'new';
   const [loading, setLoading] = useState(!isCreate);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const { addUpload, updateUpload, removeUpload } = useUpload();
 
   // New Data States
   const [publishers, setPublishers] = useState<Publisher[]>([]);
@@ -108,7 +111,63 @@ const BookDetails = () => {
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  // New Upload States
+  const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
+  const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
+  const [coverUploadProgress, setCoverUploadProgress] = useState(0);
+  const [docUploadProgress, setDocUploadProgress] = useState(0);
   const [metadataSnapshot, setMetadataSnapshot] = useState<Partial<FormState> | null>(null);
+
+  const runCoverUpload = (pubId: string, file: File, title: string) => {
+    const uploadId = `cover-${pubId}-${Date.now()}`;
+    let controller = new AbortController();
+    const cancel = () => { controller.abort(); removeUpload(uploadId); };
+    addUpload({ id: uploadId, label: `Cover - ${title}`, fileName: file.name, cancel });
+    const doUpload = () => {
+      controller = new AbortController();
+      return publicationsService.uploadCover(pubId, file, (p) => {
+        updateUpload(uploadId, { progress: p });
+        setCoverUploadProgress(p);
+      }, controller.signal)
+        .then(res => {
+          updateUpload(uploadId, { status: 'done', progress: 100, cancel: undefined });
+          setForm(prev => ({ ...prev, coverImageUrl: res.data }));
+        })
+        .catch(err => {
+          if (axios.isCancel(err) || err?.code === 'ERR_CANCELED') return;
+          updateUpload(uploadId, { status: 'error', cancel: undefined, retry: doUpload });
+        });
+    };
+    return doUpload();
+  };
+
+  const runDocumentUpload = (pubId: string, file: File, title: string) => {
+    const uploadId = `doc-${pubId}-${Date.now()}`;
+    let controller = new AbortController();
+    const cancel = () => { controller.abort(); removeUpload(uploadId); };
+    addUpload({ id: uploadId, label: `Tài liệu - ${title}`, fileName: file.name, cancel });
+    const doUpload = () => {
+      controller = new AbortController();
+      return publicationsService.getDocumentUploadUrl(pubId, file.name)
+        .then(({ data: { uploadUrl, s3Key } }) =>
+          publicationsService.uploadDocumentToS3(uploadUrl, file, (p) => {
+            updateUpload(uploadId, { progress: p });
+            setDocUploadProgress(p);
+          }, controller.signal).then(() => publicationsService.saveDocumentUrl(pubId, s3Key))
+        )
+        .then(saveRes => {
+          updateUpload(uploadId, { status: 'done', progress: 100, cancel: undefined });
+          setForm(prev => ({ ...prev, fileUrl: saveRes.data }));
+          setUploadedFileName(file.name);
+        })
+        .catch(err => {
+          if (axios.isCancel(err) || err?.code === 'ERR_CANCELED') return;
+          updateUpload(uploadId, { status: 'error', cancel: undefined, retry: doUpload });
+        });
+    };
+    return doUpload();
+  };
 
   // Fetch publication by id
   useEffect(() => {
@@ -171,43 +230,22 @@ const BookDetails = () => {
   );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!id || id === 'new') {
-      alert('Vui lòng lưu ấn phẩm trước khi upload file.');
-      return;
-    }
-
     if (!e.target.files?.[0]) return;
-
     const file = e.target.files[0];
 
-    // validate
-    if (file.size > 20 * 1024 * 1024) {
-      alert('File không được vượt quá 20MB');
+    if (file.size > 100 * 1024 * 1024) {
+      alert('File không được vượt quá 100MB');
       return;
     }
 
-    try {
-      setUploadingFile(true);
-
-      const res = await publicationsService.uploadFile(id, file);
-
-      if (res.code === 200) {
-        console.log("haha ", res.data);
-        setForm(prev => ({
-          ...prev,
-          fileUrl: res.data,
-        }));
-
-        setUploadedFileName(file.name);
-      } else {
-        alert('Upload thất bại');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Lỗi upload file');
-    } finally {
-      setUploadingFile(false);
+    if (isCreate) {
+      setSelectedDocumentFile(file);
+      return;
     }
+
+    setUploadingFile(true);
+    runDocumentUpload(id!, file, form.title || 'Ấn phẩm')
+      .finally(() => setUploadingFile(false));
   };
 
   const previewAuthors = useMemo(
@@ -337,40 +375,33 @@ const BookDetails = () => {
     });
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!id || id === 'new') {
-      alert('Vui lòng lưu thông tin ấn phẩm trước khi tải lên trang bìa.');
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+
+    // Basic validation
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn tệp hình ảnh.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước ảnh không được vượt quá 5MB.');
       return;
     }
 
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-
-      // Basic validation
-      if (!file.type.startsWith('image/')) {
-        alert('Vui lòng chọn tệp hình ảnh.');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Kích thước ảnh không được vượt quá 5MB.');
-        return;
-      }
-
-      try {
-        setIsUploadingCover(true);
-        const res = await publicationsService.updatePublicationCover(id, file);
-        if (res.code === 200 && res.data) {
-          setForm(prev => ({ ...prev, coverImageUrl: res.data }));
-          alert('Cập nhật trang bìa thành công!');
-        } else {
-          alert('Cập nhật thất bại: ' + (res.message || 'Lỗi không xác định'));
-        }
-      } catch (error: any) {
-        console.error('Error uploading cover', error);
-        alert('Lỗi khi tải lên: ' + (error.message || 'Vui lòng thử lại sau'));
-      } finally {
-        setIsUploadingCover(false);
-      }
+    if (isCreate) {
+      setSelectedCoverFile(file);
+      // Giả lập preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm(prev => ({ ...prev, coverImageUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+      return;
     }
+
+    setIsUploadingCover(true);
+    runCoverUpload(id!, file, form.title || 'Ấn phẩm')
+      .finally(() => setIsUploadingCover(false));
   };
 
   const handleUpdate = async () => {
@@ -440,25 +471,39 @@ const BookDetails = () => {
       size: form.size || null,
       weight: form.weight ? Number(form.weight) : null,
       aiTargetAudience: form.aiTargetAudience || null,
+      publisherId: form.publisher.id ?? null,
+      authorIds: form.authors.filter(a => a.id).map(a => a.id),
+      categoryIds: form.categories.filter(c => c.id).map(c => c.id),
+      tagIds: form.tags.filter(t => t.id).map(t => t.id),
     };
 
     try {
       setSaving(true);
       const res = await publicationsService.createPublication(payload as any);
-      if (res.code === 200 && res.data?.id) {
-        navigate(`/librarian/books/${res.data.id}`);
+      if (res.code === 201 && res.data) {
+        const newId: string = res.data;
+        const title = form.title;
+
+        // addUpload TRƯỚC navigate để context state tồn tại sau khi redirect
+        const uploadPromises = [];
+        if (selectedCoverFile) uploadPromises.push(runCoverUpload(newId, selectedCoverFile, title));
+        if (selectedDocumentFile) uploadPromises.push(runDocumentUpload(newId, selectedDocumentFile, title));
+
+        // Dùng đúng LIB_PREFIX path để tránh double-redirect làm destroy UploadProvider
+        navigate(`/librarianpage/books/${newId}`, { replace: true });
+
+        if (uploadPromises.length > 0) Promise.all(uploadPromises);
       } else {
-        alert(res.message || 'Tạo ấn phẩm thất bại');
+        alert(res.message || 'Tạo thất bại');
       }
-    } catch (error) {
-      console.error('Lỗi tạo ấn phẩm', error);
-      alert('Tạo ấn phẩm thất bại');
+    } catch (error: any) {
+      console.error('Lỗi create', error);
+      alert('Tạo thất bại: ' + (error.response?.data?.message || error.message));
     } finally {
       setSaving(false);
     }
   };
 
-  // Styles for React Select
   const selectStyles = {
     control: (baseStyles: any) => ({
       ...baseStyles,
@@ -551,48 +596,56 @@ const BookDetails = () => {
                 </p>
               </div>
               {!isCreate && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isEditingMetadata) {
-                      setMetadataSnapshot({
-                        isbn: form.isbn,
-                        callNumber: form.callNumber,
-                        title: form.title,
-                        subtitle: form.subtitle,
-                        description: form.description,
-                        language: form.language,
-                        pages: form.pages,
-                        publicationYear: form.publicationYear,
-                        edition: form.edition,
-                        size: form.size,
-                        weight: form.weight,
-                        aiTargetAudience: form.aiTargetAudience,
-                        publisher: form.publisher,
-                        authors: [...form.authors],
-                        categories: [...form.categories],
-                        tags: [...form.tags],
-                      });
-                    } else {
-                      if (metadataSnapshot) setForm(prev => ({ ...prev, ...metadataSnapshot }));
-                    }
-                    setIsEditingMetadata(!isEditingMetadata);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${isEditingMetadata
-                    ? 'bg-red-500 text-white hover:bg-red-600'
-                    : 'bg-white text-secondary hover:bg-slate-50'
-                    }`}
-                >
-                  {isEditingMetadata ? (
-                    <>
-                      <X size={14} /> Hủy Chỉnh Sửa
-                    </>
-                  ) : (
-                    <>
-                      <Edit2 size={14} /> Chỉnh Sửa
-                    </>
+                <div className="flex items-center gap-2">
+                  {isEditingMetadata && (
+                    <button
+                      type="button"
+                      onClick={async () => { await handleUpdate(); window.location.reload(); }}
+                      disabled={saving}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all bg-white text-secondary hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      <Save size={14} /> {saving ? 'Đang lưu...' : 'Lưu Metadata'}
+                    </button>
                   )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isEditingMetadata) {
+                        setMetadataSnapshot({
+                          isbn: form.isbn,
+                          callNumber: form.callNumber,
+                          title: form.title,
+                          subtitle: form.subtitle,
+                          description: form.description,
+                          language: form.language,
+                          pages: form.pages,
+                          publicationYear: form.publicationYear,
+                          edition: form.edition,
+                          size: form.size,
+                          weight: form.weight,
+                          aiTargetAudience: form.aiTargetAudience,
+                          publisher: form.publisher,
+                          authors: [...form.authors],
+                          categories: [...form.categories],
+                          tags: [...form.tags],
+                        });
+                      } else {
+                        if (metadataSnapshot) setForm(prev => ({ ...prev, ...metadataSnapshot }));
+                      }
+                      setIsEditingMetadata(!isEditingMetadata);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${isEditingMetadata
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-white text-secondary hover:bg-slate-50'
+                    }`}
+                  >
+                    {isEditingMetadata ? (
+                      <><X size={14} /> Hủy</>
+                    ) : (
+                      <><Edit2 size={14} /> Chỉnh Sửa</>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -898,51 +951,9 @@ const BookDetails = () => {
                 </div>
               </div>
             </div>
-
-            {isEditingMetadata && (
-              <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
-                <div className="text-sm text-slate-600">
-                  {isCreate ? 'Điền thông tin cơ bản để tạo ấn phẩm' : 'Lưu thay đổi thông tin ấn phẩm'}
-                </div>
-                <div className="flex gap-3">
-                  {!isCreate && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (metadataSnapshot) setForm(prev => ({ ...prev, ...metadataSnapshot }));
-                        setIsEditingMetadata(false);
-                      }}
-                      className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-100 flex items-center gap-2"
-                    >
-                      <X size={16} /> Hủy
-                    </button>
-                  )}
-                  <button
-                    className="px-6 py-2 bg-secondary text-white font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    onClick={async () => {
-                      if (isCreate) {
-                        await handleCreate();
-                      } else {
-                        await handleUpdate();
-                        window.location.reload();
-                      }
-                    }}
-                    disabled={saving}
-                  >
-                    <Save size={16} />
-                    {saving
-                      ? (isCreate ? 'Đang tạo...' : 'Đang lưu...')
-                      : (isCreate ? 'Tạo Ấn Phẩm' : 'Lưu Metadata')
-                    }
-                  </button>
-                </div>
-              </div>
-            )}
-
-
           </div>
 
-          {/* Cover Image Management Card */}
+            {/* Cover Image Management Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-6">
             <div className="bg-indigo-600 px-6 py-3 border-b border-indigo-700">
               <h2 className="text-white font-semibold flex items-center gap-2">
@@ -953,15 +964,6 @@ const BookDetails = () => {
               </p>
             </div>
             <div className="p-6">
-              {isCreate ? (
-                <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-8 text-center">
-                  <ImageIcon size={48} className="text-slate-300 mx-auto mb-3" />
-                  <h3 className="text-slate-600 font-medium">Vui lòng tạo ấn phẩm trước</h3>
-                  <p className="text-slate-400 text-sm mt-1">
-                    Bạn cần lưu thông tin ấn phẩm cơ bản trước khi có thể tải lên trang bìa.
-                  </p>
-                </div>
-              ) : (
                 <div className="flex items-center gap-6">
                   <div className="w-32 h-44 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-200">
                     {form.coverImageUrl ? (
@@ -976,7 +978,9 @@ const BookDetails = () => {
                   </div>
                   <div className="flex-1 space-y-4">
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-800 mb-1">Cập nhật ảnh bìa mới</h3>
+                      <h3 className="text-sm font-semibold text-slate-800 mb-1">
+                        {isCreate ? 'Chọn ảnh bìa cho ấn phẩm' : 'Cập nhật ảnh bìa mới'}
+                      </h3>
                       <p className="text-xs text-slate-500">
                         Tải lên một tệp hình ảnh để làm ảnh bìa cho ấn phẩm này.
                         Định dạng hỗ trợ: JPG, PNG, WEBP. Tối đa 5MB.
@@ -986,17 +990,17 @@ const BookDetails = () => {
                       <button
                         type="button"
                         onClick={() => document.getElementById('cover-upload-input')?.click()}
-                        disabled={isUploadingCover}
+                        disabled={isUploadingCover || saving}
                         className="px-4 py-2 bg-secondary text-white rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 transition-all disabled:opacity-50"
                       >
                         {isUploadingCover ? (
                           <>
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                            Đang tải lên...
+                            Đang tải lên ({coverUploadProgress}%)
                           </>
                         ) : (
                           <>
-                            <Upload size={16} /> Thay đổi ảnh bìa
+                            <Upload size={16} /> {isCreate ? 'Chọn ảnh bìa' : 'Thay đổi ảnh bìa'}
                           </>
                         )}
                       </button>
@@ -1007,12 +1011,26 @@ const BookDetails = () => {
                         accept="image/*"
                         onChange={handleCoverUpload}
                       />
+                      {isCreate && selectedCoverFile && !isUploadingCover && (
+                        <div className="text-xs text-amber-600 font-medium">
+                          Sẵn sàng tải lên: {selectedCoverFile.name}
+                        </div>
+                      )}
+                      {coverUploadProgress > 0 && coverUploadProgress < 100 && (
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                          <div
+                            className="bg-secondary h-1.5 rounded-full transition-all duration-300"
+                            style={{ width: `${coverUploadProgress}%` }}
+                          />
+                        </div>
+                      )}
                       {form.coverImageUrl && (
                         <button
                           type="button"
                           onClick={() => {
                             if (window.confirm('Bạn có chắc chắn muốn gỡ bỏ ảnh bìa hiện tại?')) {
                               setForm(prev => ({ ...prev, coverImageUrl: null }));
+                              if (isCreate) setSelectedCoverFile(null);
                             }
                           }}
                           className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
@@ -1023,7 +1041,6 @@ const BookDetails = () => {
                     </div>
                   </div>
                 </div>
-              )}
             </div>
           </div>
 
@@ -1039,24 +1056,17 @@ const BookDetails = () => {
             </div>
 
             <div className="p-6 space-y-4">
-              {isCreate ? (
-                <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-8 text-center">
-                  <Upload size={48} className="text-slate-300 mx-auto mb-3" />
-                  <h3 className="text-slate-600 font-medium">Vui lòng tạo ấn phẩm trước</h3>
-                  <p className="text-slate-400 text-sm mt-1">
-                    Bạn cần lưu thông tin ấn phẩm cơ bản trước khi có thể tải lên file.
-                  </p>
-                </div>
-              ) : !form.fileUrl ? (
+              {!form.fileUrl ? (
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center">
                   <Upload size={40} className="mx-auto text-slate-300 mb-3" />
                   <p className="text-slate-600 font-medium">Kéo thả file hoặc chọn file để upload</p>
-                  <p className="text-xs text-slate-400 mt-1">Hỗ trợ PDF, EPUB, tối đa 20MB</p>
+                  <p className="text-xs text-slate-400 mt-1">Hỗ trợ PDF, EPUB, tối đa 100MB</p>
                   <button
                     onClick={() => document.getElementById('file-upload-input')?.click()}
-                    className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700"
+                    disabled={uploadingFile || saving}
+                    className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 disabled:opacity-50"
                   >
-                    Chọn file
+                    {uploadingFile ? `Đang tải lên (${docUploadProgress}%)` : 'Chọn file'}
                   </button>
                   <input
                     id="file-upload-input"
@@ -1065,20 +1075,40 @@ const BookDetails = () => {
                     accept=".pdf,.epub"
                     onChange={handleFileUpload}
                   />
+                  {isCreate && selectedDocumentFile && !uploadingFile && (
+                     <div className="mt-2 text-sm text-amber-600 font-medium bg-amber-50 py-1 px-3 rounded-full inline-block">
+                       📄 Sẵn sàng: {selectedDocumentFile.name}
+                     </div>
+                  )}
+                  {docUploadProgress > 0 && docUploadProgress < 100 && (
+                     <div className="w-64 mx-auto bg-slate-100 rounded-full h-1.5 mt-4">
+                       <div
+                         className="bg-teal-500 h-1.5 rounded-full transition-all duration-300"
+                         style={{ width: `${docUploadProgress}%` }}
+                       />
+                     </div>
+                  )}
                 </div>
+
               ) : (
                 <div className="flex items-center gap-4 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-teal-100 rounded">📄</div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-teal-800">{uploadedFileName || 'File đã upload'}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-teal-800 truncate">{uploadedFileName || 'File đã upload'}</p>
                     <p className="text-xs text-teal-600 truncate">{form.fileUrl}</p>
                   </div>
                   <div className="flex gap-2">
-                    <a href={form.fileUrl} target="_blank" className="text-teal-600 hover:text-teal-800">
-                      <ExternalLink size={16} />
-                    </a>
+                    {form.fileUrl.startsWith('http') && (
+                      <a href={form.fileUrl} target="_blank" className="text-teal-600 hover:text-teal-800">
+                        <ExternalLink size={16} />
+                      </a>
+                    )}
                     <button
-                      onClick={() => { setForm(prev => ({ ...prev, fileUrl: '' })); setUploadedFileName(null); }}
+                      onClick={() => {
+                        setForm(prev => ({ ...prev, fileUrl: '' }));
+                        setUploadedFileName(null);
+                        if (isCreate) setSelectedDocumentFile(null);
+                      }}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash2 size={16} />
@@ -1100,11 +1130,25 @@ const BookDetails = () => {
                 </div>
               )}
             </div>
+
           </div>
 
+          {/* Button tạo ấn phẩm — nằm ngoài các section, ở dưới cùng */}
+          {isCreate && (
+            <div className="flex justify-end">
+              <button
+                className="px-8 py-3 bg-secondary text-white font-semibold rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
+                onClick={handleCreate}
+                disabled={saving}
+              >
+                <Save size={18} />
+                {saving ? 'Đang tạo...' : 'Tạo Ấn Phẩm'}
+              </button>
+            </div>
+          )}
 
-          {/* Advanced Actions */}
-          <div className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
+          {/* Advanced Actions — chỉ hiển thị khi đang xem/sửa, không hiển thị khi tạo mới */}
+          {!isCreate && <div className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
             <div className="bg-orange-600 px-6 py-3 border-b border-orange-700">
               <h2 className="text-white font-semibold flex items-center gap-2">
                 <AlertTriangle size={18} /> Thao Tác Nâng Cao
@@ -1197,7 +1241,7 @@ const BookDetails = () => {
                       setSaving(true);
                       await publicationsService.deletePublication(id as string);
                       alert('Đã xoá ấn phẩm.');
-                      navigate('/librarian/books');
+                      navigate('/librarianpage/books');
                     } catch (error) {
                       console.error('Lỗi xoá ấn phẩm', error);
                       alert('Xoá thất bại. Vui lòng thử lại.');
@@ -1211,7 +1255,7 @@ const BookDetails = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Right Preview Column */}
@@ -1290,7 +1334,7 @@ const BookDetails = () => {
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 

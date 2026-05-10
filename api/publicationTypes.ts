@@ -4,6 +4,44 @@
  * Định nghĩa types cho Publications API response
  */
 
+export interface PublicSearchResult {
+  publicationId: string;
+  title: string;
+  coverImageUrl: string | null;
+  publicationYear: number | null;
+  description: string | null;
+  publisherName: string | null;
+  authorNames: string | null;
+  categoryNames: string | null;
+  totalItems: number;
+  availableItems: number;
+  avgRating: number;
+  borrowCount: number;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+export interface PublicSearchParams {
+  keyword?: string;
+  categoryId?: string;
+  language?: string;
+  yearFrom?: number;
+  yearTo?: number;
+  available?: boolean;
+  branch?: string;
+  sortBy?: string;
+  page?: number;
+  size?: number;
+}
+
 // Publisher interface
 export interface Publisher {
   id: string;
@@ -81,10 +119,15 @@ export interface LibrarianPublicationResponse {
   publicationId: string;
   title: string;
   subtitle: string | null;
+  coverImageUrl: string | null;
   authorNames: string[];
   publicationYear: number;
   totalItems: number;
-  imageCoverUrl: string;
+  availableItems: number;
+  isbn: string | null;
+  publisherName: string | null;
+  categoryNames: string | null;
+  createdAt: string | null;
 }
 
 // Newest Publication Response

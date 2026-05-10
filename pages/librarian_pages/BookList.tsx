@@ -74,19 +74,18 @@ const BookList = () => {
         });
 
         if (response.code === 200 && response.data) {
-          // Map từ LibrarianPublicationResponse sang dạng hiển thị trên UI
           const mappedBooks: Book[] = response.data.content.map((pub: LibrarianPublicationResponse) => ({
             id: pub.publicationId,
             title: pub.subtitle ? `${pub.title}: ${pub.subtitle}` : pub.title,
             author: pub.authorNames?.join(', ') || 'N/A',
-            isbn: 'N/A',
+            isbn: pub.isbn || 'N/A',
             year: pub.publicationYear,
-            publisher: 'N/A',
+            publisher: pub.publisherName || 'N/A',
             totalCopies: pub.totalItems,
-            availableCopies: pub.totalItems, // Giả lập data đang mượn
-            createdAt: (pub as any).createdAt,
-            category: 'N/A',
-            thumbnail: pub.imageCoverUrl || (pub as any).coverImageUrl || '',
+            availableCopies: pub.availableItems ?? 0,
+            createdAt: pub.createdAt,
+            category: pub.categoryNames || 'N/A',
+            thumbnail: pub.coverImageUrl || '',
           }));
 
           setBooks(mappedBooks);
@@ -459,6 +458,8 @@ const BookList = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium">
+                      <span className="text-green-600">{book.availableCopies}</span>
+                      <span className="text-slate-400 mx-1">/</span>
                       <span className="text-slate-900">{book.totalCopies}</span>
                     </div>
                   </td>

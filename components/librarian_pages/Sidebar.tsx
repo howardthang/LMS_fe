@@ -3,6 +3,7 @@ import {
   Bell,
   Book,
   BookOpen,
+  ClipboardList,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -27,6 +28,7 @@ const Sidebar = () => {
     },
     { icon: Book, label: 'Đầu sách', path: '/librarian/books', badge: 842 },
     { icon: Barcode, label: 'Bản sao', path: '/librarian/copies' },
+    { icon: ClipboardList, label: 'Lịch sử giao dịch', path: '/librarian/transactions' },
     {
       icon: Inbox,
       label: 'Yêu cầu',

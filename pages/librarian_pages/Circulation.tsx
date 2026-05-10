@@ -31,14 +31,17 @@ const formatVND = (amount: number) => new Intl.NumberFormat('vi-VN').format(amou
 
 // ─── Tab: Xác nhận giao sách ────────────────────────────────────────────────
 
+type PickupType = 'direct' | 'reservation';
+
 const PickupTab = () => {
+  const [pickupType, setPickupType] = useState<PickupType>('direct');
   const [mode, setMode] = useState<LookupMode>('qr');
   const [qrInput, setQrInput] = useState('');
   const [mssvInput, setMssvInput] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [lookupResult, setLookupResult] = useState<LookupResponse['data'] | null>(null);
+  const [lookupResult, setLookupResult] = useState<any | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{
     dueDate: string; fullName: string; publicationTitle: string;
@@ -50,7 +53,7 @@ const PickupTab = () => {
   const handleLookup = async () => {
     const params =
       mode === 'qr'
-        ? { transactionId: qrInput.trim() }
+        ? (pickupType === 'direct' ? { transactionId: qrInput.trim() } : { reservationId: qrInput.trim() })
         : { studentId: mssvInput.trim(), barcode: barcodeInput.trim() };
 
     if (mode === 'qr' && !qrInput.trim()) return;
@@ -59,10 +62,18 @@ const PickupTab = () => {
     setIsLookingUp(true);
     reset();
     try {
-      const res = await transactionsService.lookup(params);
-      res.data ? setLookupResult(res.data) : setLookupError('Không tìm thấy phiếu mượn hoặc đã hết hạn.');
+      const res = pickupType === 'direct' 
+        ? await transactionsService.lookup(params)
+        : await import('../../api/reservationService').then(m => m.lookupReservation(params));
+      
+      if (res.data) {
+        setLookupResult(res.data);
+      } else {
+        setLookupError(pickupType === 'direct' ? 'Không tìm thấy phiếu mượn hoặc đã hết hạn.' : 'Không tìm thấy đặt trước hoặc chưa sẵn sàng.');
+      }
     } catch (err: any) {
-      setLookupError(err.status === 404 ? 'Không tìm thấy phiếu mượn hoặc đã hết hạn.' : err.message || 'Lỗi tra cứu.');
+      const notFoundMsg = pickupType === 'direct' ? 'Không tìm thấy phiếu mượn hoặc đã hết hạn.' : 'Không tìm thấy đặt trước hoặc chưa sẵn sàng.';
+      setLookupError(err.status === 404 ? notFoundMsg : err.message || 'Lỗi tra cứu.');
     } finally {
       setIsLookingUp(false);
     }
@@ -72,13 +83,25 @@ const PickupTab = () => {
     if (!lookupResult) return;
     setIsConfirming(true);
     try {
-      const res = await transactionsService.confirmPickup(lookupResult.transactionId);
-      if (res.code === 200) {
-        setSuccessData({ dueDate: res.data.dueDate, fullName: lookupResult.fullName, publicationTitle: lookupResult.publicationTitle });
-        setLookupResult(null);
-        setQrInput(''); setMssvInput(''); setBarcodeInput('');
-        setTimeout(() => qrRef.current?.focus(), 100);
-      }
+      const res = pickupType === 'direct'
+        ? await transactionsService.confirmPickup(lookupResult.transactionId)
+        : await import('../../api/reservationService').then(m => m.confirmReservationPickup(lookupResult.reservationId));
+      
+      // confirmReservationPickup return structure might be different, let's normalize
+      // Based on my implementation it returns BorrowTransactionResponse which has code 200/success in some wrappers
+      // But the api service confirmReservationPickup returns res.data directly.
+      // Wait, transactionsService.confirmPickup returns the whole axios response {code, data, message}
+      
+      const resData = (res as any).code === 200 ? (res as any).data : res;
+
+      setSuccessData({ 
+        dueDate: resData.dueDate, 
+        fullName: lookupResult.fullName, 
+        publicationTitle: lookupResult.publicationTitle 
+      });
+      setLookupResult(null);
+      setQrInput(''); setMssvInput(''); setBarcodeInput('');
+      setTimeout(() => qrRef.current?.focus(), 100);
     } catch (err: any) {
       setLookupError(err.message || 'Lỗi xác nhận giao sách.');
       setLookupResult(null);
@@ -88,9 +111,22 @@ const PickupTab = () => {
   };
 
   const switchMode = (m: LookupMode) => { setMode(m); reset(); setQrInput(''); setMssvInput(''); setBarcodeInput(''); };
+  const switchType = (t: PickupType) => { setPickupType(t); reset(); setQrInput(''); setMssvInput(''); setBarcodeInput(''); };
 
   return (
     <div className="space-y-5">
+      {/* Type switcher */}
+      <div className="flex gap-4 border-b border-slate-100 mb-2">
+        <button onClick={() => switchType('direct')}
+          className={`pb-2 px-1 text-sm font-medium transition-all border-b-2 ${pickupType === 'direct' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+          Từ mượn ngay
+        </button>
+        <button onClick={() => switchType('reservation')}
+          className={`pb-2 px-1 text-sm font-medium transition-all border-b-2 ${pickupType === 'reservation' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+          Từ đặt trước
+        </button>
+      </div>
+
       {/* Mode switcher */}
       <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-fit">
         <button onClick={() => switchMode('qr')}
@@ -107,7 +143,7 @@ const PickupTab = () => {
       {mode === 'qr' ? (
         <div className="space-y-3">
           <label className="block text-sm font-medium text-slate-700">
-            Mã giao dịch
+            {pickupType === 'direct' ? 'Mã giao dịch' : 'Mã đặt trước'}
             <span className="ml-2 text-xs text-slate-400 font-normal">(scanner tự điền khi quét QR)</span>
           </label>
           <div className="flex gap-2">
@@ -116,7 +152,7 @@ const PickupTab = () => {
               <input ref={qrRef} type="text" autoFocus value={qrInput}
                 onChange={(e) => setQrInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                placeholder="Quét QR hoặc nhập mã giao dịch..."
+                placeholder={pickupType === 'direct' ? "Quét QR hoặc nhập mã giao dịch..." : "Quét QR hoặc nhập mã đặt trước..."}
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
             </div>
             <button onClick={handleLookup} disabled={isLookingUp || !qrInput.trim()}
@@ -153,19 +189,20 @@ const PickupTab = () => {
           </div>
           <button onClick={handleLookup} disabled={isLookingUp || !mssvInput.trim() || !barcodeInput.trim()}
             className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 transition-colors">
-            {isLookingUp ? 'Đang tra cứu...' : 'Tra cứu phiếu mượn'}
+            {isLookingUp ? 'Đang tra cứu...' : pickupType === 'direct' ? 'Tra cứu phiếu mượn' : 'Tra cứu đặt trước'}
           </button>
         </div>
       )}
 
       {/* Result */}
       <ResultArea
+        pickupType={pickupType}
         successData={successData} lookupResult={lookupResult} lookupError={lookupError}
         isConfirming={isConfirming}
         onConfirm={handleConfirm}
         onCancel={() => { reset(); setQrInput(''); }}
         onNext={() => { setSuccessData(null); qrRef.current?.focus(); }}
-        idleText={mode === 'qr' ? 'Quét mã QR hoặc nhập mã giao dịch rồi nhấn Enter' : 'Nhập MSSV và barcode sách rồi nhấn Tra cứu'}
+        idleText={mode === 'qr' ? 'Quét mã QR hoặc nhập mã số rồi nhấn Enter' : 'Nhập MSSV và barcode sách rồi nhấn Tra cứu'}
       />
     </div>
   );
@@ -665,9 +702,10 @@ const ActionPanel = ({ item, action, fineAmount, setFineAmount, isSubmitting, er
 
 // ─── Shared result area (dùng cho PickupTab) ────────────────────────────────
 
-const ResultArea = ({ successData, lookupResult, lookupError, isConfirming, onConfirm, onCancel, onNext, idleText }: {
+const ResultArea = ({ pickupType, successData, lookupResult, lookupError, isConfirming, onConfirm, onCancel, onNext, idleText }: {
+  pickupType: PickupType;
   successData: { dueDate: string; fullName: string; publicationTitle: string } | null;
-  lookupResult: LookupResponse['data'] | null;
+  lookupResult: any | null;
   lookupError: string | null;
   isConfirming: boolean;
   onConfirm: () => void;
@@ -705,7 +743,9 @@ const ResultArea = ({ successData, lookupResult, lookupError, isConfirming, onCo
         </div>
         <div className="min-w-0">
           <p className="font-bold text-slate-900 truncate">{lookupResult.publicationTitle}</p>
-          <p className="text-xs text-slate-500 font-mono">#{lookupResult.transactionId}</p>
+          <p className="text-xs text-slate-500 font-mono">
+            {pickupType === 'direct' ? 'Phiếu mượn' : 'Đặt trước'} #{lookupResult.transactionId || lookupResult.reservationId}
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-5">
@@ -725,7 +765,7 @@ const ResultArea = ({ successData, lookupResult, lookupError, isConfirming, onCo
         <div>
           <p className="text-xs text-slate-500 mb-0.5">Hạn lấy sách</p>
           <p className="font-semibold text-red-600">
-            {new Date(lookupResult.pickedUpDeadline).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+            {new Date(lookupResult.pickedUpDeadline || lookupResult.holdExpirationTime).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
           </p>
         </div>
       </div>

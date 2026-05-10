@@ -34,6 +34,8 @@ import { toast } from 'sonner';
 import publicationsService from '../../api/publicationsService';
 import transactionsService from '../../api/transactionsService';
 import { createReservation } from '../../api/reservationService';
+import wishlistService from '../../api/wishlistService';
+import { useAuth } from '../../contexts/AuthContext';
 import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicationRatings, PublicationRatingSummary } from '../../api/publicationTypes';
 
 // --- Sub-components for Tabs ---
@@ -589,12 +591,15 @@ const ItemStatusBadge = ({ status, dueDate }: { status: string; dueDate?: string
 const BookDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { userType } = useAuth();
   const prefix = location.pathname.startsWith('/userpage')
     ? '/userpage'
     : '/publicpage';
   const [activeTab, setActiveTab] = useState('overview');
   const [data, setData] = useState<PublicationDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [inWishlist, setInWishlist] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   const [itemsData, setItemsData] = useState<PaginatedPublicationItems | null>(null);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
@@ -677,6 +682,37 @@ const BookDetailPage = () => {
     fetchRatings();
   }, [id, ratingsPage]);
 
+  useEffect(() => {
+    if (!id || userType !== 'student') return;
+    wishlistService.getWishlistStatus(id)
+      .then(res => setInWishlist(res.data))
+      .catch(() => {});
+  }, [id, userType]);
+
+  const handleToggleWishlist = async () => {
+    if (!id) return;
+    if (userType !== 'student') {
+      toast.error('Vui lòng đăng nhập để sử dụng tính năng này.');
+      return;
+    }
+    setWishlistLoading(true);
+    try {
+      if (inWishlist) {
+        await wishlistService.removeFromWishlist(id);
+        setInWishlist(false);
+        toast.success('Đã xóa khỏi danh sách yêu thích.');
+      } else {
+        await wishlistService.addToWishlist(id);
+        setInWishlist(true);
+        toast.success('Đã thêm vào danh sách yêu thích!');
+      }
+    } catch {
+      toast.error('Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
   const handleReserve = async (branch: string) => {
     if (!data?.publication?.id) return;
     setReserving(true);
@@ -691,6 +727,12 @@ const BookDetailPage = () => {
         msg = 'Sách đang có sẵn tại cơ sở này — bạn có thể đến thư viện mượn trực tiếp.';
       } else if (code === 3005) {
         msg = 'Bạn đã có đặt trước đang chờ cho ấn phẩm này rồi.';
+      } else if (code === 3012) {
+        msg = 'Hiện tại chi nhánh này chưa có bản sao nào của sách, vui lòng chọn chi nhánh khác.';
+      } else if (code === 3013) {
+        msg = 'Bạn đã đạt giới hạn tối đa 2 cuốn sách đặt trước.';
+      } else if (code === 3007) {
+        msg = 'Bạn đang có khoản phí chưa thanh toán. Vui lòng hoàn tất nghĩa vụ để sử dụng tính năng đặt trước.';
       } else {
         msg = err?.response?.data?.message || err?.message || 'Không thể đặt trước lúc này.';
       }
@@ -742,7 +784,7 @@ const BookDetailPage = () => {
     const [selectedBranch, setSelectedBranch] = useState('ANY');
 
     const items = itemsData?.content ?? [];
-    const totalItems = data?.publication?.totalItems ?? 0;
+    const totalItems = data?.items?.totalItems ?? 0;
 
     const availableInBranch = (branch: string) =>
       items.filter(i => i.status === 'AVAILABLE' && (branch === 'ANY' || i.branch === branch)).length;
@@ -930,9 +972,18 @@ const BookDetailPage = () => {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="text-gray-600 hover:text-red-500 hover:border-red-200"
+                  onClick={handleToggleWishlist}
+                  disabled={wishlistLoading}
+                  className={`transition-colors ${inWishlist
+                    ? 'text-red-500 border-red-300 hover:text-red-600 hover:border-red-400'
+                    : 'text-gray-600 hover:text-red-500 hover:border-red-200'}`}
                 >
-                  <Heart size={18} className="mr-2" /> Wishlist
+                  <Heart
+                    size={18}
+                    className="mr-2"
+                    fill={inWishlist ? 'currentColor' : 'none'}
+                  />
+                  {inWishlist ? 'Đã lưu' : 'Wishlist'}
                 </Button>
                 <Button
                   size="lg"

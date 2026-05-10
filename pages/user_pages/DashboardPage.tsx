@@ -344,7 +344,6 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
-      <Footer />
     </>
   );
 };

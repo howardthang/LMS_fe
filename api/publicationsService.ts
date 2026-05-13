@@ -21,6 +21,10 @@ const publicationsService = {
     return axiosInstance.get(`/publications/most-borrowed?limit=${limit}`);
   },
 
+  recordView: async (publicationId: string): Promise<void> => {
+    await axiosInstance.post(`/publications/${publicationId}/view`);
+  },
+
   getNewestPublications: async (limit: number = 10): Promise<ApiResponse<NewestPublication[]>> => {
     return axiosInstance.get(`/publications/newest?limit=${limit}`);
   },

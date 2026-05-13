@@ -20,6 +20,7 @@ import searchHistoryService from '../../api/searchHistoryService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Badge, Button, StarRating } from '../../components/ui';
 import publicationsService from '../../api/publicationsService';
+import recommendationService, { RecommendedPublication } from '../../api/recommendationService';
 import { MostBorrowedPublication, NewestPublication } from '../../api/publicationTypes';
 
 const HeroSection = () => {
@@ -452,11 +453,24 @@ const TestimonialCard = ({ quote, name, role, avatar }: any) => (
 );
 
 const HomePage = () => {
+  const { userType } = useAuth();
   const [newestPublications, setNewestPublications] = useState<NewestPublication[]>([]);
   const [loadingNewest, setLoadingNewest] = useState(true);
 
   const [mostBorrowedPublications, setMostBorrowedPublications] = useState<MostBorrowedPublication[]>([]);
   const [loadingMostBorrowed, setLoadingMostBorrowed] = useState(true);
+
+  const [recommendations, setRecommendations] = useState<RecommendedPublication[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+
+  useEffect(() => {
+    if (userType !== 'student') return;
+    setLoadingRecs(true);
+    recommendationService.getRecommendations(10)
+      .then(res => { if (res.code === 200) setRecommendations(res.data ?? []); })
+      .catch(() => {})
+      .finally(() => setLoadingRecs(false));
+  }, [userType]);
 
   useEffect(() => {
     const fetchNewest = async () => {
@@ -523,58 +537,33 @@ const HomePage = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          <BookCard
-            title="Machine Learning Cơ bản: Từ lý thuyết đến thực hành"
-            author="Nguyễn Văn A, Trần Thị B"
-            rating={4.5}
-            reviews={124}
-            available={3}
-            image="books/machine-learning-co-ban.webp"
-            tag="Trí tuệ nhân tạo"
-            color="blue"
-          />
-          <BookCard
-            title="Python cho Data Science: Hướng dẫn toàn diện"
-            author="Lê Minh C, Phạm Đức D"
-            rating={4.8}
-            reviews={89}
-            available={5}
-            image="https://m.media-amazon.com/images/I/71951W96oWL._AC_UF1000,1000_QL80_.jpg"
-            tag="Lập trình"
-            color="green"
-          />
-          <BookCard
-            title="Cấu trúc dữ liệu và Giải thuật nâng cao"
-            author="Hoàng Văn E, Vũ Thị F"
-            rating={4.2}
-            reviews={67}
-            available={1}
-            image="books/cau-truc-du-lieu-va-giai-thuat.jpg"
-            tag="Thuật toán"
-            color="orange"
-          />
-          <BookCard
-            title="Deep Learning và Neural Networks: Ứng dụng thực tế"
-            author="Đỗ Minh G, Ngô Thị H"
-            rating={4.7}
-            reviews={156}
-            available={4}
-            image="books/neural-networks-and-deep-learning.webp"
-            tag="Deep Learning"
-            color="purple"
-          />
-          <BookCard
-            title="Artificial Intelligence: A Modern Approach"
-            author="Stuart Russell"
-            rating={4.9}
-            reviews={298}
-            available={2}
-            image="books/artificial-intelligence-a-modern-approach.jpg"
-            tag="Trending"
-            color="red"
-          />
-        </div>
+        {!userType ? (
+          <p className="text-sm text-gray-400 italic">Đăng nhập để xem gợi ý cá nhân hóa.</p>
+        ) : loadingRecs ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-gray-100 rounded-xl aspect-[3/4] animate-pulse" />
+            ))}
+          </div>
+        ) : recommendations.length === 0 ? (
+          <p className="text-sm text-gray-400 italic">Hãy mượn hoặc lưu sách để nhận gợi ý phù hợp hơn.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {recommendations.map((pub) => (
+              <BookCard
+                key={pub.publicationId}
+                id={pub.publicationId}
+                title={pub.title}
+                author={pub.authorNames.join(', ')}
+                rating={pub.ratingAverage}
+                reviews={pub.ratingCount}
+                available={pub.availableItems}
+                image={pub.coverImageUrl ?? `https://picsum.photos/seed/${pub.publicationId}/300/400`}
+                color="purple"
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Categories - Khám phá theo chủ đề */}

@@ -684,6 +684,11 @@ const BookDetailPage = () => {
 
   useEffect(() => {
     if (!id || userType !== 'student') return;
+    publicationsService.recordView(id).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || userType !== 'student') return;
     wishlistService.getWishlistStatus(id)
       .then(res => setInWishlist(res.data))
       .catch(() => {});

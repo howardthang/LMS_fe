@@ -210,6 +210,7 @@ export interface PublicationDetailResponse {
     size: string;
     weight: number;
     callNumber: string | null;
+    tableOfContents: string | null;
     totalItems: number;
     availableItems: number;
     borrowCount?: number;
@@ -311,6 +312,34 @@ export interface PublicationRatingSummary {
   twoStarCount: number;
   oneStarCount: number;
   totalCount: number;
+}
+
+export interface TocEntry {
+  level: number | null;
+  title: string;
+  pageNum: string | null;
+}
+
+export interface BookSearchItem {
+  isbn: string | null;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  language: string | null;
+  numberOfPages: number | null;
+  publicationYear: number | null;
+  publisherName: string | null;
+  authorNames: string[];
+  categoryNames: string[];
+  coverImageUrl: string | null;
+  alternativeCoverUrl: string | null;
+  callNumber: string | null;
+  tableOfContents: TocEntry[] | null;
+}
+
+export interface BookLookupResponse {
+  queryType: 'ISBN' | 'TITLE';
+  results: BookSearchItem[];
 }
 
 export interface PaginatedPublicationItems {

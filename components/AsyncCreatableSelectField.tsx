@@ -84,11 +84,86 @@ const AsyncCreatableSelectField = ({
             menuPosition="fixed"
             styles={{
                 menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                control: (base) => ({
+                control: (base, state) => ({
                     ...base,
-                    backgroundColor: isDisabled ? '#f1f5f9' : '#ffffff',
+                    backgroundColor: isDisabled ? '#f8fafc' : '#ffffff',
                     cursor: isDisabled ? 'not-allowed' : 'default',
                     opacity: isDisabled ? 0.8 : 1,
+                    minHeight: '44px',
+                    borderColor: state.isFocused ? '#6366f1' : '#e2e8f0',
+                    borderRadius: '0.5rem',
+                    boxShadow: state.isFocused ? '0 0 0 2px rgba(99,102,241,0.15)' : 'none',
+                    '&:hover': { borderColor: '#a5b4fc' },
+                    fontSize: '0.875rem',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                }),
+                valueContainer: (base) => ({
+                    ...base,
+                    padding: '4px 10px',
+                    gap: '4px',
+                }),
+                multiValue: (base) => ({
+                    ...base,
+                    backgroundColor: '#eef2ff',
+                    borderRadius: '6px',
+                    border: '1px solid #c7d2fe',
+                    margin: '2px',
+                }),
+                multiValueLabel: (base) => ({
+                    ...base,
+                    color: '#4338ca',
+                    fontWeight: '500',
+                    fontSize: '0.8125rem',
+                    padding: '2px 6px',
+                }),
+                multiValueRemove: (base) => ({
+                    ...base,
+                    color: '#818cf8',
+                    borderRadius: '0 5px 5px 0',
+                    paddingLeft: '4px',
+                    paddingRight: '4px',
+                    '&:hover': { backgroundColor: '#c7d2fe', color: '#3730a3' },
+                }),
+                singleValue: (base) => ({
+                    ...base,
+                    color: '#1e293b',
+                    fontWeight: '500',
+                    fontSize: '0.875rem',
+                }),
+                placeholder: (base) => ({
+                    ...base,
+                    color: '#94a3b8',
+                    fontSize: '0.875rem',
+                }),
+                input: (base) => ({
+                    ...base,
+                    color: '#1e293b',
+                    fontSize: '0.875rem',
+                }),
+                option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected ? '#eef2ff' : state.isFocused ? '#f8fafc' : undefined,
+                    color: state.isSelected ? '#4338ca' : '#334155',
+                    fontWeight: state.isSelected ? '500' : '400',
+                    fontSize: '0.875rem',
+                    '&:active': { backgroundColor: '#e0e7ff' },
+                }),
+                menu: (base) => ({
+                    ...base,
+                    borderRadius: '0.5rem',
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.06)',
+                    border: '1px solid #e2e8f0',
+                    overflow: 'hidden',
+                }),
+                dropdownIndicator: (base) => ({
+                    ...base,
+                    color: '#94a3b8',
+                    '&:hover': { color: '#6366f1' },
+                }),
+                clearIndicator: (base) => ({
+                    ...base,
+                    color: '#94a3b8',
+                    '&:hover': { color: '#ef4444' },
                 }),
             }}
             placeholder={placeholder}

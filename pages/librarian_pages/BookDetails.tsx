@@ -20,9 +20,11 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import publicationsService from '../../api/publicationsService';
-import { Author, Category, Publisher, Tag } from '../../api/publicationTypes';
+import { Author, BookSearchItem, Category, Publisher, Tag, TocEntry } from '../../api/publicationTypes';
 import AsyncCreatableSelectField from '../../components/AsyncCreatableSelectField';
 import { useUpload } from '../../contexts/UploadContext';
 
@@ -47,6 +49,7 @@ type FormState = {
   categories: { id: string | null; name: string }[];
   tags: { id: string | null; name: string }[];
   coverImageUrl: string | null;
+  tableOfContents: TocEntry[] | null;
   totalItems: number;
   availableItems: number;
   borrowedItems: number;
@@ -133,6 +136,7 @@ const emptyForm: FormState = {
   categories: [],
   tags: [],
   coverImageUrl: null,
+  tableOfContents: null,
   totalItems: 0,
   availableItems: 0,
   borrowedItems: 0,
@@ -171,6 +175,186 @@ const BookDetails = () => {
   const [coverUploadProgress, setCoverUploadProgress] = useState(0);
   const [docUploadProgress, setDocUploadProgress] = useState(0);
   const [metadataSnapshot, setMetadataSnapshot] = useState<Partial<FormState> | null>(null);
+
+  // Smart book lookup
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [isResolvingEntities, setIsResolvingEntities] = useState(false);
+  const [lookupResults, setLookupResults] = useState<BookSearchItem[] | null>(null);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const [lookupApplied, setLookupApplied] = useState<BookSearchItem | null>(null);
+
+  type PendingEntity = { type: 'author' | 'publisher' | 'category'; name: string; checked: boolean };
+  const [pendingEntities, setPendingEntities] = useState<PendingEntity[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [availableCovers, setAvailableCovers] = useState<string[]>([]);
+
+  const handleSmartLookup = async () => {
+    const q = lookupQuery.trim();
+    if (!q) return;
+    setIsLookingUp(true);
+    setLookupResults(null);
+    setLookupApplied(null);
+    try {
+      const res = await publicationsService.bookLookup(q);
+      if (res.code === 200 && res.data) {
+        const { queryType, results } = res.data;
+        if (results.length === 0) {
+          alert('Không tìm thấy sách nào. Thử từ khóa khác.');
+          return;
+        }
+        setLookupResults(results);
+        if (queryType === 'ISBN') {
+          await applyLookupResult(results[0]);
+        } else {
+          setShowResultsModal(true);
+        }
+      }
+    } catch {
+      alert('Tra cứu thất bại. Vui lòng kiểm tra kết nối.');
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const resolveAuthors = async (names: string[]) => {
+    const found: { id: string; name: string }[] = [];
+    const notFound: string[] = [];
+    await Promise.all(names.map(async (name) => {
+      try {
+        const res = await publicationsService.searchAuthors(name);
+        const match = (res.data || []).find((a: any) => a.name.toLowerCase() === name.toLowerCase());
+        if (match) found.push({ id: String(match.id), name: match.name });
+        else notFound.push(name);
+      } catch { notFound.push(name); }
+    }));
+    return { found, notFound };
+  };
+
+  const resolvePublisher = async (name: string | null) => {
+    if (!name) return { found: null, notFound: null };
+    try {
+      const res = await publicationsService.searchPublishers(name);
+      const match = (res.data || []).find((p: any) => p.name.toLowerCase() === name.toLowerCase());
+      if (match) return { found: { id: String(match.id), name: match.name }, notFound: null };
+      return { found: null, notFound: name };
+    } catch { return { found: null, notFound: name }; }
+  };
+
+  const resolveCategories = async (names: string[]) => {
+    const found: { id: string; name: string }[] = [];
+    const notFound: string[] = [];
+    await Promise.all(names.map(async (name) => {
+      try {
+        const res = await publicationsService.searchCategories(name);
+        const match = (res.data || []).find((c: any) =>
+          (c.name || c.categoryName || '').toLowerCase() === name.toLowerCase()
+        );
+        if (match) found.push({ id: String(match.id), name: match.name || match.categoryName || name });
+        else notFound.push(name);
+      } catch { notFound.push(name); }
+    }));
+    return { found, notFound };
+  };
+
+  const handleCreatePendingEntities = async () => {
+    setShowCreateModal(false);
+    const toCreate = pendingEntities.filter(e => e.checked);
+    if (!toCreate.length) { setPendingEntities([]); return; }
+
+    setIsResolvingEntities(true);
+    const newAuthors: { id: string; name: string }[] = [];
+    let newPublisher: { id: string; name: string } | null = null;
+    const newCategories: { id: string; name: string }[] = [];
+    const failed: string[] = [];
+
+    try {
+      await Promise.all(toCreate.map(async (entity) => {
+        try {
+          if (entity.type === 'author') {
+            const res = await publicationsService.createAuthor(entity.name);
+            newAuthors.push({ id: res.data.id, name: res.data.name });
+          } else if (entity.type === 'publisher') {
+            const res = await publicationsService.createPublisher(entity.name);
+            newPublisher = { id: res.data.id, name: res.data.name };
+          } else {
+            const res = await publicationsService.createCategory(entity.name);
+            newCategories.push({ id: res.data.id, name: res.data.name });
+          }
+        } catch {
+          failed.push(entity.name);
+        }
+      }));
+
+      setForm(prev => ({
+        ...prev,
+        authors: newAuthors.length > 0 ? [...prev.authors.filter(a => a.id), ...newAuthors] : prev.authors,
+        publisher: newPublisher ?? prev.publisher,
+        categories: newCategories.length > 0 ? [...prev.categories.filter(c => c.id), ...newCategories] : prev.categories,
+      }));
+
+      const created = toCreate.length - failed.length;
+      if (created > 0) {
+        const names = [...newAuthors, ...(newPublisher ? [newPublisher] : []), ...newCategories]
+          .map(e => e.name).join(', ');
+        toast.success(`Đã tạo và điền vào form: ${names}`);
+      }
+      if (failed.length > 0) {
+        toast.error(`Tạo thất bại: ${failed.join(', ')}`);
+      }
+    } finally {
+      setIsResolvingEntities(false);
+      setPendingEntities([]);
+    }
+  };
+
+  const applyLookupResult = async (item: BookSearchItem) => {
+    setForm(prev => ({
+      ...prev,
+      isbn: item.isbn ?? prev.isbn,
+      title: item.title ?? prev.title,
+      subtitle: item.subtitle ?? prev.subtitle,
+      description: item.description ?? prev.description,
+      language: item.language ?? prev.language,
+      pages: item.numberOfPages?.toString() ?? prev.pages,
+      publicationYear: item.publicationYear?.toString() ?? prev.publicationYear,
+      callNumber: item.callNumber ?? prev.callNumber,
+      coverImageUrl: item.coverImageUrl ?? prev.coverImageUrl,
+      tableOfContents: item.tableOfContents ?? prev.tableOfContents,
+    }));
+    setLookupApplied(item);
+    setShowResultsModal(false);
+    const covers = [item.coverImageUrl, item.alternativeCoverUrl].filter(Boolean) as string[];
+    setAvailableCovers(covers);
+
+    setIsResolvingEntities(true);
+    try {
+      const [authorsResult, publisherResult, categoriesResult] = await Promise.all([
+        resolveAuthors(item.authorNames ?? []),
+        resolvePublisher(item.publisherName ?? null),
+        resolveCategories(item.categoryNames ?? []),
+      ]);
+
+      setForm(prev => ({
+        ...prev,
+        authors: authorsResult.found.length > 0 ? authorsResult.found : prev.authors,
+        publisher: publisherResult.found ?? prev.publisher,
+        categories: categoriesResult.found.length > 0 ? categoriesResult.found : prev.categories,
+      }));
+
+      const pending: PendingEntity[] = [
+        ...authorsResult.notFound.map(name => ({ type: 'author' as const, name, checked: true })),
+        ...(publisherResult.notFound ? [{ type: 'publisher' as const, name: publisherResult.notFound, checked: true }] : []),
+        ...categoriesResult.notFound.map(name => ({ type: 'category' as const, name, checked: true })),
+      ];
+      if (pending.length > 0) {
+        setPendingEntities(pending);
+        setShowCreateModal(true);
+      }
+    } finally {
+      setIsResolvingEntities(false);
+    }
+  };
 
   const runCoverUpload = (pubId: string, file: File, title: string) => {
     const uploadId = `cover-${pubId}-${Date.now()}`;
@@ -367,10 +551,7 @@ const BookDetails = () => {
 
   const createAuthorOption = async (name: string) => {
     const res = await publicationsService.createAuthor(name);
-    return {
-      value: res.data.id,
-      label: res.data.name,
-    };
+    return { value: res.data.id, label: res.data.name };
   };
 
 
@@ -384,10 +565,7 @@ const BookDetails = () => {
 
   const createCategoryOption = async (name: string) => {
     const res = await publicationsService.createCategory(name);
-    return {
-      value: res.data.id,
-      label: res.data.name,
-    };
+    return { value: res.data.id, label: res.data.name };
   };
 
   const loadTagOptions = async (input: string) => {
@@ -438,10 +616,7 @@ const BookDetails = () => {
 
   const createPublisherOption = async (name: string) => {
     const res = await publicationsService.createPublisher(name);
-    return {
-      value: res.data.id,
-      label: res.data.name,
-    };
+    return { value: res.data.id, label: res.data.name };
   };
 
   const updateAuthor = (idx: string, name: string, matchedId?: string | null) => {
@@ -536,14 +711,14 @@ const BookDetails = () => {
       setSaving(true);
       const res = await publicationsService.updatePublication(id, payload as any);
       if (res.code === 200) {
-        alert('Cập nhật thành công');
+        toast.success('Cập nhật ấn phẩm thành công!');
         window.location.reload();
       } else {
-        alert(res.message || 'Cập nhật thất bại');
+        toast.error(res.message || 'Cập nhật thất bại.');
       }
     } catch (error) {
       console.error('Lỗi update', error);
-      alert('Cập nhật thất bại');
+      toast.error('Cập nhật thất bại.');
     } finally {
       setSaving(false);
     }
@@ -569,10 +744,13 @@ const BookDetails = () => {
       size: form.size || null,
       weight: form.weight ? Number(form.weight) : null,
       aiTargetAudience: form.aiTargetAudience || null,
+      // nếu có file upload thì URL sẽ bị ghi đè sau khi upload xong
+      coverImageUrl: selectedCoverFile ? null : (form.coverImageUrl || null),
       publisherId: form.publisher.id ?? null,
       authorIds: form.authors.filter(a => a.id).map(a => a.id),
       categoryIds: form.categories.filter(c => c.id).map(c => c.id),
       tagIds: form.tags.filter(t => t.id).map(t => t.id),
+      tableOfContents: form.tableOfContents ?? null,
     };
 
     try {
@@ -587,16 +765,17 @@ const BookDetails = () => {
         if (selectedCoverFile) uploadPromises.push(runCoverUpload(newId, selectedCoverFile, title));
         if (selectedDocumentFile) uploadPromises.push(runDocumentUpload(newId, selectedDocumentFile, title));
 
-        // Dùng đúng LIB_PREFIX path để tránh double-redirect làm destroy UploadProvider
+        toast.success(`Tạo ấn phẩm "${title}" thành công!`);
+        setIsEditingMetadata(false);
         navigate(`/librarianpage/books/${newId}`, { replace: true });
 
         if (uploadPromises.length > 0) Promise.all(uploadPromises);
       } else {
-        alert(res.message || 'Tạo thất bại');
+        toast.error(res.message || 'Tạo ấn phẩm thất bại.');
       }
     } catch (error: any) {
-      console.error('Lỗi create', error);
-      alert('Tạo thất bại: ' + (error.response?.data?.message || error.message));
+      const msg = error?.response?.data?.message || error?.message || 'Vui lòng thử lại.';
+      toast.error('Tạo thất bại: ' + msg);
     } finally {
       setSaving(false);
     }
@@ -651,6 +830,7 @@ const BookDetails = () => {
   const AiStatusIcon = aiStatus.icon;
 
   return (
+    <>
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       {/* Top Bar */}
       <div className="flex items-center justify-between">
@@ -751,9 +931,56 @@ const BookDetails = () => {
             </div>
 
             <div className="p-6 space-y-6">
+              {/* Smart Book Lookup */}
+              {isEditingMetadata && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-3">
+                  <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">
+                    Tra cứu thông tin sách tự động
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={lookupQuery}
+                      onChange={e => setLookupQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSmartLookup()}
+                      placeholder="Nhập ISBN (vd: 9780132350884) hoặc tên sách (vd: Clean Code)..."
+                      className="flex-1 px-3 py-2 text-sm border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSmartLookup}
+                      disabled={isLookingUp || !lookupQuery.trim()}
+                      className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap font-medium"
+                    >
+                      {isLookingUp ? 'Đang tìm...' : 'Tra cứu'}
+                    </button>
+                  </div>
+                  {lookupApplied && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                        <span className="text-sm text-green-700">
+                          Đã điền tự động từ <strong>"{lookupApplied.title}"</strong>
+                          {isResolvingEntities && (
+                            <span className="ml-2 text-indigo-600 animate-pulse">— Đang tra cứu tác giả & NXB...</span>
+                          )}
+                        </span>
+                        {!isResolvingEntities && (
+                          <button onClick={() => setLookupApplied(null)} className="text-green-500 hover:text-green-700 ml-2">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-indigo-500">
+                    Nhập ISBN để điền tự động ngay · Nhập tên sách để chọn từ danh sách kết quả
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  Tiêu đề <span className="text-red-500">*</span>
+                  Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -762,6 +989,20 @@ const BookDetails = () => {
                   onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                   className={`w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 ${!isEditingMetadata ? 'bg-slate-50 cursor-not-allowed' : 'bg-white'
                     }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Subtitle
+                </label>
+                <input
+                  type="text"
+                  value={form.subtitle}
+                  readOnly={!isEditingMetadata}
+                  onChange={(e) => setForm((prev) => ({ ...prev, subtitle: e.target.value }))}
+                  placeholder="VD: A Handbook of Agile Software Craftsmanship"
+                  className={`w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 ${!isEditingMetadata ? 'bg-slate-50 cursor-not-allowed' : 'bg-white'}`}
                 />
               </div>
 
@@ -1142,6 +1383,46 @@ const BookDetails = () => {
                     </div>
                   </div>
                 </div>
+
+              {/* Cover picker từ lookup */}
+              {availableCovers.length > 1 && isEditingMetadata && (
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                    Chọn ảnh bìa từ kết quả tra cứu
+                  </p>
+                  <div className="flex gap-3 flex-wrap">
+                    {availableCovers.map((url, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, coverImageUrl: url }))}
+                        className={`relative w-20 h-28 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+                          form.coverImageUrl === url
+                            ? 'border-indigo-500 shadow-md shadow-indigo-200'
+                            : 'border-slate-200 hover:border-indigo-300'
+                        }`}
+                      >
+                        <img
+                          src={url}
+                          alt={`Cover option ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={e => { (e.target as HTMLImageElement).src = ''; }}
+                        />
+                        {form.coverImageUrl === url && (
+                          <div className="absolute inset-0 bg-indigo-500/20 flex items-end justify-center pb-1">
+                            <span className="text-xs bg-indigo-600 text-white px-1.5 py-0.5 rounded font-medium">
+                              Đang dùng
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute top-1 left-1 text-xs bg-black/50 text-white px-1 rounded">
+                          {idx === 0 ? 'Google' : 'OpenLib'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1374,12 +1655,22 @@ const BookDetails = () => {
                     if (!confirmed) return;
                     try {
                       setSaving(true);
-                      await publicationsService.deletePublication(id as string);
-                      alert('Đã xoá ấn phẩm.');
-                      navigate('/librarianpage/books');
-                    } catch (error) {
-                      console.error('Lỗi xoá ấn phẩm', error);
-                      alert('Xoá thất bại. Vui lòng thử lại.');
+                      const res = await publicationsService.deletePublication(id as string);
+                      if (res.code === 200) {
+                        alert('Đã xoá ấn phẩm.');
+                        navigate('/librarianpage/books');
+                      } else {
+                        alert(res.message || 'Xoá thất bại.');
+                      }
+                    } catch (error: any) {
+                      const msg = error?.response?.data?.message || error?.message;
+                      if (msg?.includes('items still exist')) {
+                        alert('Không thể xoá: ấn phẩm này còn bản sao vật lý (items). Hãy xoá tất cả bản sao trước.');
+                      } else if (msg?.includes('active reservations')) {
+                        alert('Không thể xoá: ấn phẩm này đang có đặt trước (PENDING/READY). Hãy huỷ các đặt trước trước.');
+                      } else {
+                        alert('Xoá thất bại: ' + (msg || 'Vui lòng thử lại.'));
+                      }
                     } finally {
                       setSaving(false);
                     }
@@ -1470,6 +1761,101 @@ const BookDetails = () => {
         </div>
       </div>
     </div>
+
+    {/* Confirm Create Missing Entities Modal */}
+    {showCreateModal && pendingEntities.length > 0 && createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h3 className="font-semibold text-slate-800">Không tìm thấy trong hệ thống</h3>
+            <p className="text-sm text-slate-500 mt-1">Chọn các mục bạn muốn tạo mới:</p>
+          </div>
+          <div className="px-6 py-4 space-y-3">
+            {pendingEntities.map((entity, idx) => (
+              <label key={idx} className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={entity.checked}
+                  onChange={() => setPendingEntities(prev =>
+                    prev.map((e, i) => i === idx ? { ...e, checked: !e.checked } : e)
+                  )}
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600"
+                />
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  entity.type === 'author' ? 'bg-blue-100 text-blue-700' :
+                  entity.type === 'publisher' ? 'bg-purple-100 text-purple-700' :
+                  'bg-green-100 text-green-700'
+                }`}>
+                  {entity.type === 'author' ? 'Tác giả' : entity.type === 'publisher' ? 'NXB' : 'Danh mục'}
+                </span>
+                <span className="text-sm text-slate-700 group-hover:text-slate-900">{entity.name}</span>
+              </label>
+            ))}
+          </div>
+          <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+            <button
+              onClick={() => { setShowCreateModal(false); setPendingEntities([]); }}
+              className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 font-medium"
+            >
+              Bỏ qua tất cả
+            </button>
+            <button
+              onClick={handleCreatePendingEntities}
+              disabled={!pendingEntities.some(e => e.checked)}
+              className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50"
+            >
+              Tạo mục đã chọn
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+
+    {/* Title Search Results Modal */}
+    {showResultsModal && lookupResults && createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 className="font-semibold text-slate-800">
+              Kết quả tìm kiếm — chọn cuốn sách cần điền
+            </h3>
+            <button onClick={() => setShowResultsModal(false)} className="text-slate-400 hover:text-slate-600">
+              <X size={20} />
+            </button>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[70vh] overflow-y-auto">
+            {lookupResults.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => { applyLookupResult(item); }}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-indigo-50 text-left transition-colors"
+              >
+                <div className="flex-shrink-0 w-12 h-16 bg-slate-100 rounded overflow-hidden">
+                  {item.coverImageUrl
+                    ? <img src={item.coverImageUrl} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">No cover</div>
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 truncate">{item.title}</p>
+                  {item.authorNames?.length > 0 && (
+                    <p className="text-sm text-slate-500 truncate">{item.authorNames.join(', ')}</p>
+                  )}
+                  <div className="flex gap-2 mt-1 text-xs text-slate-400">
+                    {item.publisherName && <span>{item.publisherName}</span>}
+                    {item.publicationYear && <span>· {item.publicationYear}</span>}
+                    {item.language && <span>· {item.language}</span>}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 };
 

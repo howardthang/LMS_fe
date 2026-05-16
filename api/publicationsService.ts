@@ -2,6 +2,7 @@ import axios from 'axios';
 import axiosInstance from './axiosInstance';
 import {
   ApiResponse,
+  BookLookupResponse,
   GetPublicationsParams,
   PublicationDetailResponse,
   MostBorrowedPublication,
@@ -23,17 +24,14 @@ const publicationsService = {
   getMostBorrowedPublications: async (limit: number = 10): Promise<ApiResponse<MostBorrowedPublication[]>> => {
     return axiosInstance.get(`/publications/most-borrowed?limit=${limit}`);
   },
-
+  recordView: async (publicationId: string): Promise<ApiResponse<void>> => {
+    return axiosInstance.post(`/publications/${publicationId}/view`);
   getPublicStats: async (): Promise<ApiResponse<PublicLibraryStats>> => {
     return axiosInstance.get('/publications/public-stats');
   },
 
   getPublicTestimonials: async (limit: number = 3): Promise<ApiResponse<PublicTestimonial[]>> => {
     return axiosInstance.get(`/publications/testimonials?limit=${limit}`);
-  },
-
-  recordView: async (publicationId: string): Promise<void> => {
-    await axiosInstance.post(`/publications/${publicationId}/view`);
   },
 
   getNewestPublications: async (limit: number = 10): Promise<ApiResponse<NewestPublication[]>> => {
@@ -249,6 +247,10 @@ const publicationsService = {
     data: { star: number; comment: string }
   ): Promise<ApiResponse<void>> => {
     return axiosInstance.post(`/publications/${id}/ratings`, data);
+  },
+
+  bookLookup: async (q: string): Promise<ApiResponse<BookLookupResponse>> => {
+    return axiosInstance.get(`/publications/book-lookup?q=${encodeURIComponent(q)}`);
   },
 
   getPublicationRatingSummary: async (

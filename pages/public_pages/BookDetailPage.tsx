@@ -42,6 +42,91 @@ import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicat
 
 type TocEntry = { level: number | null; title: string; pageNum: string | null };
 
+type TocGroup = { entry: TocEntry; chapterIdx: number; children: TocEntry[] };
+
+const TocRow = ({
+  title, pageNum, depth, index, isChapter,
+}: {
+  title: string; pageNum?: string | null; depth: number; index?: number; isChapter?: boolean;
+}) => (
+  <div
+    className={`flex items-baseline gap-2 py-2 group ${
+      depth === 0
+        ? 'border-b border-gray-100 last:border-0'
+        : 'border-b border-gray-50 last:border-0'
+    }`}
+    style={{ paddingLeft: depth > 0 ? `${depth * 20 + 12}px` : undefined }}
+  >
+    {isChapter && index !== undefined && (
+      <span className="text-xs font-semibold text-indigo-400 w-6 flex-shrink-0 tabular-nums">
+        {index}.
+      </span>
+    )}
+    {!isChapter && (
+      <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0 mt-1.5" />
+    )}
+    <span
+      className={`flex-1 min-w-0 text-sm leading-snug ${
+        depth === 0
+          ? 'font-medium text-gray-800'
+          : 'text-gray-500'
+      }`}
+    >
+      {title}
+    </span>
+    {pageNum && pageNum.trim() !== '' && (
+      <>
+        <span className="flex-1 border-b border-dotted border-gray-200 mb-1 mx-2 min-w-[16px]" />
+        <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0 tabular-nums">
+          tr.&nbsp;{pageNum}
+        </span>
+      </>
+    )}
+  </div>
+);
+
+const TocSection = ({ group }: { group: TocGroup }) => {
+  const [open, setOpen] = useState(true);
+  const hasChildren = group.children.length > 0;
+
+  return (
+    <div>
+      <div
+        className={`flex items-center gap-1 ${hasChildren ? 'cursor-pointer select-none' : ''}`}
+        onClick={hasChildren ? () => setOpen(o => !o) : undefined}
+      >
+        {hasChildren && (
+          <span className="text-gray-300 flex-shrink-0 transition-transform duration-200" style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+            <ChevronRight size={14} />
+          </span>
+        )}
+        <div className={`flex-1 ${hasChildren ? '-ml-0' : 'ml-5'}`}>
+          <TocRow
+            title={group.entry.title}
+            pageNum={group.entry.pageNum}
+            depth={0}
+            index={group.chapterIdx}
+            isChapter
+          />
+        </div>
+      </div>
+
+      {hasChildren && open && (
+        <div className="ml-5">
+          {group.children.map((child, i) => (
+            <TocRow
+              key={i}
+              title={child.title}
+              pageNum={child.pageNum}
+              depth={child.level ?? 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const TocTab = ({ raw }: { raw: string | null }) => {
   if (!raw) return (
     <div className="text-center py-16 text-gray-400">
@@ -51,27 +136,55 @@ const TocTab = ({ raw }: { raw: string | null }) => {
   );
 
   let entries: TocEntry[] = [];
-  try { entries = JSON.parse(raw); } catch { return <p className="text-sm text-red-500">Dữ liệu mục lục không hợp lệ.</p>; }
-  if (!entries.length) return <p className="text-sm text-gray-400 py-8 text-center">Mục lục trống.</p>;
+  try {
+    const parsed = JSON.parse(raw);
+    entries = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return <p className="text-sm text-red-500">Dữ liệu mục lục không hợp lệ.</p>;
+  }
+  if (!entries.length) return (
+    <div className="text-center py-16 text-gray-400">
+      <List size={40} className="mx-auto mb-3 opacity-40" />
+      <p className="text-sm">Chưa có mục lục cho ấn phẩm này.</p>
+    </div>
+  );
+
+  // Group: level-0 entries become chapter headers, subsequent non-0 entries become children
+  const groups: TocGroup[] = [];
+  let chapterNum = 0;
+  for (const entry of entries) {
+    const lvl = entry.level ?? 0;
+    if (lvl === 0) {
+      chapterNum++;
+      groups.push({ entry, chapterIdx: chapterNum, children: [] });
+    } else if (groups.length > 0) {
+      groups[groups.length - 1].children.push(entry);
+    } else {
+      // sub-entry before any level-0 — treat as standalone chapter
+      chapterNum++;
+      groups.push({ entry: { ...entry, level: 0 }, chapterIdx: chapterNum, children: [] });
+    }
+  }
+
+  const hasAnyPage = entries.some(e => e.pageNum && e.pageNum.trim() !== '');
 
   return (
     <div className="max-w-2xl">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Mục lục</h3>
-      <ol className="space-y-1">
-        {entries.map((entry, idx) => {
-          const depth = entry.level ?? 1;
-          return (
-            <li key={idx} className={`flex items-baseline justify-between gap-4 py-1.5 border-b border-gray-100 last:border-0 ${depth === 1 ? '' : 'pl-6 opacity-80'}`}>
-              <span className={`text-sm ${depth === 1 ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
-                {entry.title}
-              </span>
-              {entry.pageNum && (
-                <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">tr. {entry.pageNum}</span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-base font-semibold text-gray-900">
+          Mục lục
+          <span className="ml-2 text-xs font-normal text-gray-400">({chapterNum} chương)</span>
+        </h3>
+        {!hasAnyPage && (
+          <span className="text-xs text-gray-400 italic">Không có số trang</span>
+        )}
+      </div>
+
+      <div className="space-y-0">
+        {groups.map((group, i) => (
+          <TocSection key={i} group={group} />
+        ))}
+      </div>
     </div>
   );
 };
@@ -1257,7 +1370,7 @@ const BookDetailPage = () => {
             <div className="flex space-x-8 overflow-x-auto scrollbar-hide">
               {[
                 { id: 'overview', label: 'Tổng quan', icon: AlertCircle },
-                ...(data.publication.tableOfContents ? [{ id: 'toc', label: 'Mục lục', icon: List }] : []),
+                { id: 'toc', label: 'Mục lục', icon: List },
                 { id: 'reviews', label: `Đánh giá (${data.ratings.totalRatings})`, icon: Star },
                 { id: 'related', label: 'Sách liên quan', icon: BookOpen },
               ].map((tab) => (

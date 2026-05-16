@@ -40,6 +40,42 @@ import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicat
 
 // --- Sub-components for Tabs ---
 
+type TocEntry = { level: number | null; title: string; pageNum: string | null };
+
+const TocTab = ({ raw }: { raw: string | null }) => {
+  if (!raw) return (
+    <div className="text-center py-16 text-gray-400">
+      <List size={40} className="mx-auto mb-3 opacity-40" />
+      <p className="text-sm">Chưa có mục lục cho ấn phẩm này.</p>
+    </div>
+  );
+
+  let entries: TocEntry[] = [];
+  try { entries = JSON.parse(raw); } catch { return <p className="text-sm text-red-500">Dữ liệu mục lục không hợp lệ.</p>; }
+  if (!entries.length) return <p className="text-sm text-gray-400 py-8 text-center">Mục lục trống.</p>;
+
+  return (
+    <div className="max-w-2xl">
+      <h3 className="text-lg font-bold text-gray-900 mb-4">Mục lục</h3>
+      <ol className="space-y-1">
+        {entries.map((entry, idx) => {
+          const depth = entry.level ?? 1;
+          return (
+            <li key={idx} className={`flex items-baseline justify-between gap-4 py-1.5 border-b border-gray-100 last:border-0 ${depth === 1 ? '' : 'pl-6 opacity-80'}`}>
+              <span className={`text-sm ${depth === 1 ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
+                {entry.title}
+              </span>
+              {entry.pageNum && (
+                <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">tr. {entry.pageNum}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+};
+
 const OverviewTab = ({ data }: { data: PublicationDetailResponse }) => (
   <div className="animate-fade-in">
     {/* Description */}
@@ -1221,6 +1257,7 @@ const BookDetailPage = () => {
             <div className="flex space-x-8 overflow-x-auto scrollbar-hide">
               {[
                 { id: 'overview', label: 'Tổng quan', icon: AlertCircle },
+                ...(data.publication.tableOfContents ? [{ id: 'toc', label: 'Mục lục', icon: List }] : []),
                 { id: 'reviews', label: `Đánh giá (${data.ratings.totalRatings})`, icon: Star },
                 { id: 'related', label: 'Sách liên quan', icon: BookOpen },
               ].map((tab) => (
@@ -1248,6 +1285,7 @@ const BookDetailPage = () => {
           {/* Tab Content */}
           <div className="p-6 md:p-8">
             {activeTab === 'overview' && <OverviewTab data={data} />}
+            {activeTab === 'toc' && <TocTab raw={data.publication.tableOfContents ?? null} />}
             {activeTab === 'reviews' && (
               <ReviewsTab
                 publicationId={id || ''}

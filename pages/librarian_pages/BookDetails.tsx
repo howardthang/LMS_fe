@@ -1,18 +1,22 @@
 import {
   AlertTriangle,
   ArrowLeft,
+  CheckCircle,
+  Clock,
   Copy,
   Edit2,
   ExternalLink,
   Eye,
   Image as ImageIcon,
+  Loader2,
   QrCode,
   RotateCcw,
   Save,
   Star,
   Trash2,
   Upload,
-  X
+  X,
+  XCircle
 } from 'lucide-react';
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
@@ -51,7 +55,51 @@ type FormState = {
   borrowedItems: number;
   averageRating: number;
   totalRatings: number;
+  aiProcessingStatus: 'NOT_UPLOADED' | 'NOT_STARTED' | 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'FAILED';
+  aiProcessingError: string | null;
+  aiChunksCount: number | null;
+  aiVectorsCount: number | null;
+  aiProcessedAt: string | null;
 };
+
+const AI_STATUS_CONFIG = {
+  NOT_UPLOADED: {
+    label: 'Chưa upload file',
+    description: 'Ấn phẩm chưa có file nội dung để AI xử lý.',
+    className: 'bg-slate-50 text-slate-700 border-slate-200',
+    icon: Clock,
+  },
+  NOT_STARTED: {
+    label: 'Chưa chạy AI',
+    description: 'File đã được lưu nhưng chưa có lượt xử lý AI nào.',
+    className: 'bg-amber-50 text-amber-700 border-amber-200',
+    icon: Clock,
+  },
+  QUEUED: {
+    label: 'Đang chờ xử lý',
+    description: 'Yêu cầu đã được gửi sang AI Service và đang chờ xử lý.',
+    className: 'bg-blue-50 text-blue-700 border-blue-200',
+    icon: Clock,
+  },
+  RUNNING: {
+    label: 'AI đang chạy',
+    description: 'AI đang trích xuất, làm sạch, tóm tắt và vector hóa nội dung.',
+    className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    icon: Loader2,
+  },
+  SUCCESS: {
+    label: 'AI đã xử lý xong',
+    description: 'Ấn phẩm đã có summary/tag/vector phục vụ tìm kiếm và gợi ý.',
+    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    icon: CheckCircle,
+  },
+  FAILED: {
+    label: 'AI xử lý lỗi',
+    description: 'AI chưa hoàn tất. Kiểm tra lỗi hoặc upload lại file để chạy lại.',
+    className: 'bg-red-50 text-red-700 border-red-200',
+    icon: XCircle,
+  },
+} as const;
 
 const FACULTY_TARGET_OPTIONS = [
   { value: 'KHOA_KHOA_HOC_VA_KY_THUAT_MAY_TINH', label: 'Khoa Khoa học và Kỹ thuật Máy tính' },
@@ -94,6 +142,11 @@ const emptyForm: FormState = {
   borrowedItems: 0,
   averageRating: 0,
   totalRatings: 0,
+  aiProcessingStatus: 'NOT_UPLOADED',
+  aiProcessingError: null,
+  aiChunksCount: null,
+  aiVectorsCount: null,
+  aiProcessedAt: null,
 };
 
 const BookDetails = () => {
@@ -342,7 +395,15 @@ const BookDetails = () => {
         )
         .then(saveRes => {
           updateUpload(uploadId, { status: 'done', progress: 100, cancel: undefined });
-          setForm(prev => ({ ...prev, fileUrl: saveRes.data }));
+          setForm(prev => ({
+            ...prev,
+            fileUrl: saveRes.data,
+            aiProcessingStatus: 'QUEUED',
+            aiProcessingError: null,
+            aiChunksCount: null,
+            aiVectorsCount: null,
+            aiProcessedAt: null,
+          }));
           setUploadedFileName(file.name);
         })
         .catch(err => {
@@ -397,6 +458,11 @@ const BookDetails = () => {
             borrowedItems: detail.items?.totalBorrowedItems ?? 0,
             averageRating: detail.ratings?.averageRating ?? 0,
             totalRatings: detail.ratings?.totalRatings ?? 0,
+            aiProcessingStatus: pub.aiProcessingStatus ?? (pub.fileUrl ? 'NOT_STARTED' : 'NOT_UPLOADED'),
+            aiProcessingError: pub.aiProcessingError ?? null,
+            aiChunksCount: pub.aiChunksCount ?? null,
+            aiVectorsCount: pub.aiVectorsCount ?? null,
+            aiProcessedAt: pub.aiProcessedAt ?? null,
           });
         }
       } catch (error) {
@@ -407,6 +473,38 @@ const BookDetails = () => {
     };
     fetchData();
   }, [id, isCreate]);
+
+  useEffect(() => {
+    if (isCreate || !id || !['QUEUED', 'RUNNING'].includes(form.aiProcessingStatus)) {
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      try {
+        const res = await publicationsService.getPublicationById(id);
+        if (res.code === 200 && res.data) {
+          const pub = res.data.publication;
+          setForm(prev => ({
+            ...prev,
+            aiSummary: pub.aiSummary ?? prev.aiSummary,
+            aiTargetAudience: pub.aiTargetAudience ?? prev.aiTargetAudience,
+            aiProcessingStatus: pub.aiProcessingStatus ?? prev.aiProcessingStatus,
+            aiProcessingError: pub.aiProcessingError ?? null,
+            aiChunksCount: pub.aiChunksCount ?? null,
+            aiVectorsCount: pub.aiVectorsCount ?? null,
+            aiProcessedAt: pub.aiProcessedAt ?? null,
+            tags: res.data.tags?.length
+              ? res.data.tags.map((t: any) => ({ id: t.id, name: t.name }))
+              : prev.tags,
+          }));
+        }
+      } catch (error) {
+        console.error('Error polling AI processing status', error);
+      }
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [form.aiProcessingStatus, id, isCreate]);
 
   const authorsList = useMemo(
     () => (form.authors.length ? form.authors : [{ id: null, name: '' }]),
@@ -728,6 +826,9 @@ const BookDetails = () => {
     );
   }
 
+  const aiStatus = AI_STATUS_CONFIG[form.aiProcessingStatus] ?? AI_STATUS_CONFIG.NOT_UPLOADED;
+  const AiStatusIcon = aiStatus.icon;
+
   return (
     <>
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -735,7 +836,7 @@ const BookDetails = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            to="/librarian/books"
+            to="/librarianpage/books"
             className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"
           >
             <ArrowLeft size={24} />
@@ -1337,6 +1438,32 @@ const BookDetails = () => {
             </div>
 
             <div className="p-6 space-y-4">
+              <div className={`rounded-lg border px-4 py-3 ${aiStatus.className}`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <AiStatusIcon
+                      size={20}
+                      className={`mt-0.5 flex-shrink-0 ${form.aiProcessingStatus === 'RUNNING' ? 'animate-spin' : ''}`}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">{aiStatus.label}</p>
+                      <p className="text-xs opacity-80">{aiStatus.description}</p>
+                      {form.aiProcessingError && (
+                        <p className="mt-2 text-xs text-red-700">{form.aiProcessingError}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-xs sm:text-right opacity-80">
+                    {form.aiProcessedAt && (
+                      <div>Cập nhật: {new Date(form.aiProcessedAt).toLocaleString('vi-VN')}</div>
+                    )}
+                    {form.aiProcessingStatus === 'SUCCESS' && (
+                      <div>{form.aiChunksCount ?? 0} chunks / {form.aiVectorsCount ?? 0} vectors</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {!form.fileUrl ? (
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center">
                   <Upload size={40} className="mx-auto text-slate-300 mb-3" />
@@ -1386,7 +1513,15 @@ const BookDetails = () => {
                     )}
                     <button
                       onClick={() => {
-                        setForm(prev => ({ ...prev, fileUrl: '' }));
+                        setForm(prev => ({
+                          ...prev,
+                          fileUrl: '',
+                          aiProcessingStatus: 'NOT_UPLOADED',
+                          aiProcessingError: null,
+                          aiChunksCount: null,
+                          aiVectorsCount: null,
+                          aiProcessedAt: null,
+                        }));
                         setUploadedFileName(null);
                         if (isCreate) setSelectedDocumentFile(null);
                       }}

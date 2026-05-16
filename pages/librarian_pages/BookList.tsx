@@ -1,4 +1,4 @@
-import { Edit2, Eye, Plus, Search } from 'lucide-react';
+import { CheckCircle, Clock, Edit2, Eye, Loader2, Plus, Search, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import publicationsService from '../../api/publicationsService';
@@ -6,6 +6,26 @@ import { LibrarianPublicationResponse, Category } from '../../api/publicationTyp
 import { Book } from '../../types';
 import categoriesService from '../../api/categoriesService';
 import Select from 'react-select';
+
+const AI_STATUS_CONFIG = {
+  NOT_UPLOADED: { label: 'Chưa upload', className: 'bg-slate-100 text-slate-600', icon: Clock },
+  NOT_STARTED: { label: 'Chưa chạy', className: 'bg-amber-50 text-amber-700', icon: Clock },
+  QUEUED: { label: 'Đang chờ', className: 'bg-blue-50 text-blue-700', icon: Clock },
+  RUNNING: { label: 'Đang chạy', className: 'bg-indigo-50 text-indigo-700', icon: Loader2 },
+  SUCCESS: { label: 'Đã xong', className: 'bg-emerald-50 text-emerald-700', icon: CheckCircle },
+  FAILED: { label: 'Lỗi AI', className: 'bg-red-50 text-red-700', icon: XCircle },
+} as const;
+
+const AiStatusBadge = ({ status }: { status?: Book['aiProcessingStatus'] }) => {
+  const cfg = AI_STATUS_CONFIG[status || 'NOT_UPLOADED'] ?? AI_STATUS_CONFIG.NOT_UPLOADED;
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${cfg.className}`}>
+      <Icon size={13} className={status === 'RUNNING' ? 'animate-spin' : ''} />
+      {cfg.label}
+    </span>
+  );
+};
 
 const BookList = () => {
   // State cho data
@@ -86,6 +106,9 @@ const BookList = () => {
             createdAt: pub.createdAt,
             category: pub.categoryNames || 'N/A',
             thumbnail: pub.coverImageUrl || '',
+            aiProcessingStatus: pub.aiProcessingStatus,
+            aiProcessingError: pub.aiProcessingError,
+            aiProcessedAt: pub.aiProcessedAt,
           }));
 
           setBooks(mappedBooks);
@@ -124,7 +147,6 @@ const BookList = () => {
       setAppliedYear(undefined);
     }
     setCurrentPage(0); // Reset về trang đầu khi search
-    // TODO: Apply category, year, hasItems, noItems filters khi API hỗ trợ
   };
 
   // Handler cho nút "Xóa bộ lọc"
@@ -181,7 +203,7 @@ const BookList = () => {
           </p>
         </div>
         <Link
-          to="/librarian/books/new"
+          to="/librarianpage/books/new"
           className="bg-secondary hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium shadow-sm transition-colors"
         >
           <Plus size={20} /> Thêm đầu sách mới
@@ -389,13 +411,14 @@ const BookList = () => {
               >
                 Ngày tạo {sortBy === 'createdAt' && (direction === 'DESC' ? '↓' : '↑')}
               </th>
+              <th className="px-6 py-4 font-semibold">Trạng thái AI</th>
               <th className="px-6 py-4 font-semibold text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center">
+                <td colSpan={8} className="px-6 py-8 text-center">
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary"></div>
                     <span className="ml-3 text-slate-600">Đang tải...</span>
@@ -404,7 +427,7 @@ const BookList = () => {
               </tr>
             ) : books.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
                   Không tìm thấy dữ liệu
                 </td>
               </tr>
@@ -420,7 +443,7 @@ const BookList = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-start gap-4">
                       <Link
-                        to={`/librarian/books/${book.id}`}
+                        to={`/librarianpage/books/${book.id}`}
                         className={`w-10 h-14 rounded shadow-sm flex-shrink-0 block overflow-hidden ${
                           !book.thumbnail ? [
                             'bg-blue-500',
@@ -442,7 +465,7 @@ const BookList = () => {
                       </Link>
                       <div>
                         <Link
-                          to={`/librarian/books/${book.id}`}
+                          to={`/librarianpage/books/${book.id}`}
                           className="font-medium text-slate-900 hover:text-blue-600 line-clamp-2"
                         >
                           {book.title}
@@ -469,20 +492,38 @@ const BookList = () => {
                       hour: '2-digit', minute: '2-digit'
                     }) : 'N/A'}
                   </td>
+                  <td className="px-6 py-4">
+                    <AiStatusBadge status={book.aiProcessingStatus} />
+                    {book.aiProcessingStatus === 'FAILED' && book.aiProcessingError && (
+                      <p className="mt-1 max-w-[180px] truncate text-xs text-red-500" title={book.aiProcessingError}>
+                        {book.aiProcessingError}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Link
-                        to={`/librarian/books/${book.id}`}
+                        to={`/librarianpage/books/${book.id}`}
                         className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                        title="Xem chi tiết"
                       >
                         <Eye size={18} />
                       </Link>
-                      <button className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded">
+                      <Link
+                        to={`/librarianpage/books/${book.id}`}
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                        title="Chỉnh sửa"
+                      >
                         <Edit2 size={18} />
-                      </button>
-                      <button className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded">
+                      </Link>
+                      <Link
+                        to="/librarianpage/copies/new"
+                        state={{ publicationId: book.id }}
+                        className="p-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded"
+                        title="Thêm bản sao"
+                      >
                         <Plus size={18} />
-                      </button>
+                      </Link>
                     </div>
                   </td>
                 </tr>

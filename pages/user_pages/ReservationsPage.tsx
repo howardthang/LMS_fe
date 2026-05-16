@@ -175,7 +175,6 @@ const ReservationCard = ({
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
       <div className="flex flex-col sm:flex-row gap-4">
-        {/* Cover placeholder */}
         <div className="w-full sm:w-14 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
           {reservation.coverImageUrl ? (
             <img src={reservation.coverImageUrl} alt="" className="w-full h-full object-cover" />

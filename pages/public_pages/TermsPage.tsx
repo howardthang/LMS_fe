@@ -270,7 +270,8 @@ const TermsPage = () => {
                 </a>
               </li>
               <li>
-                Địa chỉ: Đại học ABC, 123 Đường XYZ, Quận 1, TP. Hồ Chí Minh
+                Địa chỉ: 268 Lý Thường Kiệt, Phường 14, Quận 10, Thành phố Hồ
+                Chí Minh
               </li>
             </ul>
           </section>

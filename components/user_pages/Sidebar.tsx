@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Search,
   Settings,
   User,
 } from 'lucide-react';
@@ -19,6 +18,15 @@ import usersService, { UserProfileResponse } from '../../api/usersService';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { getMyReservations } from '../../api/reservationService';
 import transactionsService from '../../api/transactionsService';
+import { Footer } from '../public_pages/Layout';
+
+const publicNavItems = [
+  { label: 'Trang chủ', to: '/publicpage' },
+  { label: 'Tìm kiếm', to: '/publicpage/search' },
+  { label: 'Danh mục', to: '/publicpage/categories' },
+  { label: 'Giới thiệu', to: '/publicpage/about' },
+  { label: 'Liên hệ', to: '/publicpage/contact' },
+];
 
 const SidebarItem = ({ to, icon: Icon, label, active, count }: any) => (
   <Link
@@ -58,6 +66,7 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
   const [pendingReservations, setPendingReservations] = useState(0);
   const [activeBorrows, setActiveBorrows] = useState(0);
   const { unreadCount } = useNotifications();
+  const isPublicBrowsing = location.pathname.startsWith('/publicpage');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -115,7 +124,7 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
       `}
       >
         <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0">
-          <Link to="/publicpage" className="flex items-center">
+          <Link to="/userpage/dashboard" className="flex items-center">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white mr-2">
               <BookOpen size={20} />
             </div>
@@ -221,36 +230,42 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header for Mobile/Notifications */}
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 shadow-sm">
-          <div className="flex items-center">
+        {/* Top Header for public navigation and notifications */}
+        <header className="bg-white border-b border-gray-200 h-20 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 shadow-sm relative">
+          <div className="flex items-center min-w-0 z-10">
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 mr-2"
             >
               <Menu size={24} />
             </button>
-            <h2 className="text-lg font-bold text-gray-800 lg:hidden">
-              Dashboard
+            <h2 className="text-lg font-bold text-gray-800 xl:hidden">
+              SmartLibrary
             </h2>
           </div>
 
-          <div className="flex items-center space-x-4">
-            {/* Search Bar - Hidden on small mobile */}
-            <div className="hidden md:flex relative">
-              <input
-                type="text"
-                placeholder="Tìm nhanh..."
-                className="pl-9 pr-4 py-1.5 rounded-full bg-gray-100 border-none text-sm focus:ring-2 focus:ring-blue-500 w-64"
-              />
-              <Search
-                size={16}
-                className="absolute left-3 top-2 text-gray-400"
-              />
-            </div>
+          <nav className="hidden xl:flex items-center justify-center gap-8 absolute left-1/2 -translate-x-1/2">
+            {publicNavItems.map(item => {
+              const active = item.to === '/publicpage'
+                ? location.pathname === item.to
+                : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+              return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`text-sm font-semibold transition-colors ${
+                  active
+                    ? 'text-blue-600'
+                    : 'text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                {item.label}
+              </Link>
+              );
+            })}
+          </nav>
 
-            <div className="h-6 w-px bg-gray-200 hidden md:block"></div>
-
+          <div className="flex items-center space-x-4 z-10">
             <Link
               to="/userpage/notifications"
               className="p-2 text-gray-400 hover:text-gray-600 relative rounded-full hover:bg-gray-100 transition-colors"
@@ -265,7 +280,10 @@ export const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">{children}</main>
+        <main className={`flex-1 overflow-y-auto ${isPublicBrowsing ? 'p-0' : 'p-4 lg:p-8'}`}>
+          {children}
+          {isPublicBrowsing && <Footer />}
+        </main>
       </div>
     </div>
   );

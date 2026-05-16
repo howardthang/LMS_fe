@@ -247,9 +247,9 @@ const CopyDetails = () => {
           alert(res.message);
           
           if (res.data && res.data.id) {
-            navigate(`/librarian/copies/${res.data.id}`, { replace: true });
+            navigate(`/librarianpage/copies/${res.data.id}`, { replace: true });
           } else {
-            navigate('/librarian/copies');
+            navigate('/librarianpage/copies');
           }
         } else {
           setError(res?.message || 'Tạo thất bại. Vui lòng thử lại.');
@@ -298,7 +298,7 @@ const CopyDetails = () => {
       setError(null);
 
       await axiosInstance.delete(`/items/${copyData.id}`);
-      navigate('/librarian/copies');
+      navigate('/librarianpage/copies');
     } catch (e) {
       console.error(e);
       setError('Xóa thất bại. Vui lòng thử lại.');
@@ -325,7 +325,7 @@ const CopyDetails = () => {
       const res = await axiosInstance.post(`/items`, payload);
       const newId = res?.data?.data?.id ?? res?.data?.id;
 
-      if (newId) navigate(`/librarian/copies/${newId}`);
+      if (newId) navigate(`/librarianpage/copies/${newId}`);
       else alert('Nhân bản thành công nhưng không lấy được ID bản sao mới.');
     } catch (e) {
       console.error(e);
@@ -348,11 +348,11 @@ const CopyDetails = () => {
           {/* Breadcrumb & Header */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 text-sm text-slate-500">
-              <Link to="/librarian/dashboard" className="hover:text-blue-600">
+              <Link to="/librarianpage/dashboard" className="hover:text-blue-600">
                 Trang chủ
               </Link>
               <span>&gt;</span>
-              <Link to="/librarian/copies" className="hover:text-blue-600">
+              <Link to="/librarianpage/copies" className="hover:text-blue-600">
                 Bản sao
               </Link>
               <span>&gt;</span>
@@ -523,7 +523,7 @@ const CopyDetails = () => {
                   </div>
 
                   <Link
-                    to={`/librarian/books/${(publication as any)?.publication?.id || publication?.id || statePublicationId || ''}`}
+                    to={`/librarianpage/books/${(publication as any)?.publication?.id || publication?.id || statePublicationId || ''}`}
                     className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded flex items-center gap-2 hover:bg-blue-700"
                   >
                     <ExternalLink size={14} /> Xem ấn phẩm
@@ -934,7 +934,7 @@ const CopyDetails = () => {
                     </button>
                   )}
                   <button
-                    onClick={() => navigate('/librarian/copies')}
+                    onClick={() => navigate('/librarianpage/copies')}
                     className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50"
                   >
                     Huỷ

@@ -22,7 +22,7 @@ import {
   User,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import {
   Badge,
@@ -37,6 +37,7 @@ import { createReservation } from '../../api/reservationService';
 import wishlistService from '../../api/wishlistService';
 import { useAuth } from '../../contexts/AuthContext';
 import { PublicationDetailResponse, PaginatedPublicationItems, PaginatedPublicationRatings, PublicationRatingSummary } from '../../api/publicationTypes';
+import type { RecommendedPublication } from '../../api/recommendationService';
 
 // --- Sub-components for Tabs ---
 
@@ -587,7 +588,7 @@ const BookCardSimple = ({
     </div>
     <div className="p-3 flex flex-col flex-grow">
       <h4 className="font-bold text-gray-900 text-sm line-clamp-2 mb-1 group-hover:text-blue-600 transition-colors">
-        <Link to="#">{title}</Link>
+        {title}
       </h4>
       <p className="text-xs text-gray-500 mb-2">{author}</p>
       <div className="mt-auto flex items-center justify-between">
@@ -612,7 +613,15 @@ const BookCardSimple = ({
   </div>
 );
 
-const RelatedBooksTab = () => (
+const RelatedBooksTab = ({
+  books,
+  prefix,
+  isLoading,
+}: {
+  books: RecommendedPublication[];
+  prefix: string;
+  isLoading: boolean;
+}) => (
   <div className="animate-fade-in">
     <div className="flex justify-between items-center mb-6">
       <h3 className="text-xl font-bold text-gray-900">Sách cùng chủ đề</h3>
@@ -623,90 +632,31 @@ const RelatedBooksTab = () => (
         Xem tất cả <ArrowRight size={14} className="ml-1" />
       </Link>
     </div>
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      <BookCardSimple
-        title="Deep Learning từ cơ bản đến nâng cao"
-        author="Nguyễn Thanh Tuấn"
-        rating={4.8}
-        image="public/avatar/Avatar.JPG"
-        tag="Có sẵn"
-        status="available"
-        color="green"
-      />
-      <BookCardSimple
-        title="Python cho Data Science"
-        author="Phạm Đình Khánh"
-        rating={4.5}
-        image="public/avatar/Avatar.JPG"
-        tag="Có sẵn"
-        status="available"
-        color="green"
-      />
-      <BookCardSimple
-        title="Trí tuệ nhân tạo hiện đại"
-        author="Trần Minh Quang"
-        rating={4.7}
-        image="public/avatar/Avatar.JPG"
-        tag="Đang mượn"
-        status="loan"
-        color="orange"
-      />
-      <BookCardSimple
-        title="Thống kê cho Machine Learning"
-        author="Lê Thị Mai"
-        rating={4.4}
-        image="public/avatar/Avatar.JPG"
-        tag="Có sẵn"
-        status="available"
-        color="green"
-      />
-      <BookCardSimple
-        title="Computer Vision với OpenCV"
-        author="Hoàng Văn Nam"
-        rating={4.6}
-        image="public/avatar/Avatar.JPG"
-        tag="Có sẵn"
-        status="available"
-        color="blue"
-      />
-    </div>
-
-    <div className="mt-12">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-bold text-gray-900">
-          Người mượn cuốn này cũng mượn...
-        </h3>
-      </div>
+    {isLoading ? (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <BookCardSimple
-          title="Xử lý ngôn ngữ tự nhiên"
-          author="Đặng Thị Hoa"
-          rating={4.3}
-          image="public/avatar/Avatar.JPG"
-          tag="Có sẵn"
-          status="available"
-          color="purple"
-        />
-        <BookCardSimple
-          title="Khai phá dữ liệu và ứng dụng"
-          author="Ngô Đức Thành"
-          rating={4.5}
-          image="public/avatar/Avatar.JPG"
-          tag="Có sẵn"
-          status="available"
-          color="red"
-        />
-        <BookCardSimple
-          title="Reinforcement Learning cơ bản"
-          author="Bùi Văn Toàn"
-          rating={4.7}
-          image="public/avatar/Avatar.JPG"
-          tag="Đang mượn"
-          status="loan"
-          color="yellow"
-        />
+        {[1, 2, 3, 4, 5].map((item) => (
+          <div key={item} className="h-72 bg-gray-100 rounded-xl animate-pulse"></div>
+        ))}
       </div>
-    </div>
+    ) : books.length > 0 ? (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {books.map((book) => (
+          <Link key={book.publicationId} to={`${prefix}/book/${book.publicationId}`}>
+            <BookCardSimple
+              title={book.title}
+              author={book.authorNames?.join(', ') || 'Chưa rõ tác giả'}
+              rating={book.ratingAverage ?? 0}
+              image={book.coverImageUrl || '/avatar/Avatar.JPG'}
+              tag={book.availableItems > 0 ? 'Có sẵn' : 'Đang mượn'}
+              status={book.availableItems > 0 ? 'available' : 'loan'}
+              color={book.availableItems > 0 ? 'green' : 'orange'}
+            />
+          </Link>
+        ))}
+      </div>
+    ) : (
+      <div className="py-12 text-center text-gray-500">Chưa có dữ liệu sách tương tự cho ấn phẩm này.</div>
+    )}
   </div>
 );
 
@@ -735,11 +685,102 @@ const ItemStatusBadge = ({ status, dueDate }: { status: string; dueDate?: string
   );
 };
 
+const AUDIENCE_LABELS: Record<string, string> = {
+  KHOA_KHOA_HOC_VA_KY_THUAT_MAY_TINH: 'Khoa Khoa học và Kỹ thuật Máy tính',
+  KHOA_DIEN_DIEN_TU: 'Khoa Điện - Điện tử',
+  KHOA_CO_KHI: 'Khoa Cơ khí',
+  KHOA_KY_THUAT_HOA_HOC: 'Khoa Kỹ thuật Hóa học',
+  KHOA_KY_THUAT_XAY_DUNG: 'Khoa Kỹ thuật Xây dựng',
+  KHOA_KY_THUAT_GIAO_THONG: 'Khoa Kỹ thuật Giao thông',
+  KHOA_QUAN_LY_CONG_NGHIEP: 'Khoa Quản lý Công nghiệp',
+  KHOA_MOI_TRUONG_VA_TAI_NGUYEN: 'Khoa Môi trường và Tài nguyên',
+  KHOA_CONG_NGHE_VAT_LIEU: 'Khoa Công nghệ Vật liệu',
+  KHOA_KHOA_HOC_UNG_DUNG: 'Khoa Khoa học Ứng dụng',
+  KHOA_KY_THUAT_DIA_CHAT_VA_DAU_KHI: 'Khoa Kỹ thuật Địa chất và Dầu khí',
+};
+
+const formatAudienceLabel = (value: string) =>
+  AUDIENCE_LABELS[value.trim()] || value.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, s => s.toUpperCase());
+
+const SimilarBooksSection = ({
+  books,
+  prefix,
+  isLoading,
+}: {
+  books: RecommendedPublication[];
+  prefix: string;
+  isLoading: boolean;
+}) => {
+  if (isLoading) {
+    return (
+      <div className="px-6 md:px-8 py-8 border-t border-gray-200">
+        <div className="h-6 w-60 bg-gray-200 rounded mb-5 animate-pulse"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-32 bg-gray-100 rounded-xl animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!books.length) {
+    return null;
+  }
+
+  return (
+    <div className="px-6 md:px-8 py-8 border-t border-gray-200 bg-white">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="flex items-center text-lg font-bold text-gray-900">
+          <Sparkles size={20} className="mr-2 text-blue-600" />
+          Các loại sách tương tự sách này
+        </h3>
+        <Link to={`${prefix}/search`} className="text-sm text-blue-600 hover:underline flex items-center">
+          Khám phá thêm <ArrowRight size={14} className="ml-1" />
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {books.map((book) => (
+          <Link
+            key={book.publicationId}
+            to={`${prefix}/book/${book.publicationId}`}
+            className="group flex gap-4 rounded-xl border border-gray-200 bg-gray-50 p-3 hover:bg-white hover:border-blue-200 hover:shadow-md transition-all"
+          >
+            <img
+              src={book.coverImageUrl || '/avatar/Avatar.JPG'}
+              alt={book.title}
+              className="h-28 w-20 rounded-lg object-cover bg-white border border-gray-100 flex-shrink-0"
+            />
+            <div className="min-w-0 flex flex-col">
+              <h4 className="font-bold text-gray-900 text-sm line-clamp-2 group-hover:text-blue-600">
+                {book.title}
+              </h4>
+              <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                {book.authorNames?.join(', ') || 'Chưa rõ tác giả'}
+              </p>
+              <div className="mt-auto flex items-center gap-3 text-xs text-gray-600">
+                <span className="inline-flex items-center">
+                  <Star size={12} className="text-yellow-400 fill-yellow-400 mr-1" />
+                  {book.ratingAverage ?? 0}
+                </span>
+                <span className="text-green-700 bg-green-50 border border-green-100 rounded-full px-2 py-0.5">
+                  {book.availableItems ?? 0} bản có sẵn
+                </span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- Main Page Component ---
 
 const BookDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const { userType } = useAuth();
   const prefix = location.pathname.startsWith('/userpage')
     ? '/userpage'
@@ -761,6 +802,17 @@ const BookDetailPage = () => {
   const [borrowSuccessData, setBorrowSuccessData] = useState<import('../../api/transactionsService').BorrowResponse['data'] | null>(null);
   const [showReserveModal, setShowReserveModal] = useState(false);
   const [reserving, setReserving] = useState(false);
+  const [similarBooks, setSimilarBooks] = useState<RecommendedPublication[]>([]);
+  const [isLoadingSimilar, setIsLoadingSimilar] = useState(false);
+
+  const requireStudentAuth = (actionLabel: string) => {
+    if (userType === 'student') return true;
+    toast.info(`Vui lòng đăng nhập tài khoản sinh viên để ${actionLabel}.`);
+    navigate('/publicpage/login', {
+      state: { from: `${location.pathname}${location.search}` },
+    });
+    return false;
+  };
 
   useEffect(() => {
     const fetchPublicationDetail = async () => {
@@ -843,12 +895,28 @@ const BookDetailPage = () => {
       .catch(() => {});
   }, [id, userType]);
 
+  useEffect(() => {
+    const fetchSimilarBooks = async () => {
+      if (!id) return;
+      try {
+        setIsLoadingSimilar(true);
+        const response = await publicationsService.getSimilarPublications(id, 6);
+        if (response.code === 200) {
+          setSimilarBooks(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch similar publications:', error);
+        setSimilarBooks([]);
+      } finally {
+        setIsLoadingSimilar(false);
+      }
+    };
+    fetchSimilarBooks();
+  }, [id]);
+
   const handleToggleWishlist = async () => {
     if (!id) return;
-    if (userType !== 'student') {
-      toast.error('Vui lòng đăng nhập để sử dụng tính năng này.');
-      return;
-    }
+    if (!requireStudentAuth('lưu sách vào wishlist')) return;
     setWishlistLoading(true);
     try {
       if (inWishlist) {
@@ -867,8 +935,41 @@ const BookDetailPage = () => {
     }
   };
 
+  const handleShare = async () => {
+    if (!data) return;
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: data.publication.title,
+      text: `Xem sách "${data.publication.title}" trên SmartLibrary`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Đã sao chép liên kết sách.');
+      }
+    } catch {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Đã sao chép liên kết sách.');
+    }
+  };
+
+  const handleCopyCitation = async () => {
+    if (!data) return;
+    const authors = data.authors.map((author) => author.name).join(', ') || 'Không rõ tác giả';
+    const publisher = data.publisher?.name || 'Không rõ nhà xuất bản';
+    const year = data.publication.publicationYear || 'n.d.';
+    const citation = `${authors}. (${year}). ${data.publication.title}. ${publisher}.`;
+    await navigator.clipboard.writeText(citation);
+    toast.success('Đã sao chép trích dẫn tài liệu.');
+  };
+
   const handleReserve = async (branch: string) => {
     if (!data?.publication?.id) return;
+    if (!requireStudentAuth('đặt trước sách')) return;
     setReserving(true);
     try {
       await createReservation(data.publication.id, branch);
@@ -897,6 +998,7 @@ const BookDetailPage = () => {
   };
 
   const handleBorrow = async (itemId: string) => {
+    if (!requireStudentAuth('mượn sách')) return;
     try {
       // Just a simple confirm, optional
       const confirmBorrow = window.confirm("Bạn có chắc chắn muốn mượn sách này?");
@@ -924,7 +1026,7 @@ const BookDetailPage = () => {
       }
     } catch (error: any) {
       console.error('Borrow failed:', error);
-      alert(error.message || "Không thể mượn sách lúc này. Vui lòng thử lại sau.");
+      toast.error(error.message || "Không thể mượn sách lúc này. Vui lòng thử lại sau.");
     }
   };
 
@@ -1098,9 +1200,14 @@ const BookDetailPage = () => {
                   </Badge>
                 )}
                 {data.categories && data.categories.map((cat) => (
-                  <Badge key={cat.id} variant="secondary" className="text-sm py-1 px-3">
-                    {cat.name}
-                  </Badge>
+                  <Link key={cat.id} to={`${prefix}/search?categoryId=${cat.id}`}>
+                    <Badge
+                      variant="secondary"
+                      className="text-sm py-1 px-3 cursor-pointer hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors"
+                    >
+                      {cat.name}
+                    </Badge>
+                  </Link>
                 ))}
               </div>
 
@@ -1109,7 +1216,9 @@ const BookDetailPage = () => {
                   <Button
                     size="lg"
                     className="px-8 shadow-blue-200 shadow-lg hover:shadow-xl transition-shadow"
-                    onClick={() => setShowReserveModal(true)}
+                    onClick={() => {
+                      if (requireStudentAuth('đặt trước sách')) setShowReserveModal(true);
+                    }}
                   >
                     <Clock size={18} className="mr-2" /> Đặt trước
                   </Button>
@@ -1118,7 +1227,9 @@ const BookDetailPage = () => {
                     size="lg"
                     variant="outline"
                     className="px-8 text-blue-600 border-blue-300 hover:bg-blue-50"
-                    onClick={() => setShowReserveModal(true)}
+                    onClick={() => {
+                      if (requireStudentAuth('đặt trước sách')) setShowReserveModal(true);
+                    }}
                   >
                     <Clock size={18} className="mr-2" /> Đặt trước
                   </Button>
@@ -1142,12 +1253,14 @@ const BookDetailPage = () => {
                 <Button
                   size="lg"
                   variant="outline"
+                  onClick={handleShare}
                   className="text-gray-600 hover:text-blue-500 hover:border-blue-200"
                 >
                   <Share2 size={18} className="mr-2" /> Chia sẻ
                 </Button>
                 <Button
                   variant="ghost"
+                  onClick={handleCopyCitation}
                   className="ml-auto text-gray-400 hover:text-gray-600"
                 >
                   <span className="text-xl mr-2">❝</span> Trích dẫn tài liệu
@@ -1194,7 +1307,7 @@ const BookDetailPage = () => {
                                 size={14}
                                 className="mr-2 mt-0.5 text-green-500 flex-shrink-0"
                               />{' '}
-                              {item.trim()}
+                              {formatAudienceLabel(item)}
                             </li>
                           ))}
                         </ul>
@@ -1436,8 +1549,20 @@ const BookDetailPage = () => {
                 totalRatings={data.ratings.totalRatings}
               />
             )}
-            {activeTab === 'related' && <RelatedBooksTab />}
+            {activeTab === 'related' && (
+              <RelatedBooksTab
+                books={similarBooks}
+                prefix={prefix}
+                isLoading={isLoadingSimilar}
+              />
+            )}
           </div>
+
+          <SimilarBooksSection
+            books={similarBooks}
+            prefix={prefix}
+            isLoading={isLoadingSimilar}
+          />
         </div>
       </div>
 

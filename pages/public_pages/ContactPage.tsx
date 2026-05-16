@@ -1,5 +1,6 @@
 import { CheckCircle, Clock, Mail, MapPin, Phone, Send } from 'lucide-react';
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -12,8 +13,8 @@ const ContactPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate form submission
     setSubmitted(true);
+    toast.success('Đã ghi nhận tin nhắn liên hệ.');
     setTimeout(() => {
       setSubmitted(false);
       setFormData({ name: '', email: '', subject: '', message: '' });
@@ -54,9 +55,9 @@ const ContactPage = () => {
                       Địa chỉ
                     </h3>
                     <p className="text-gray-600 text-sm">
-                      Đại học ABC
+                      Trường Đại học Bách khoa - ĐHQG-HCM
                       <br />
-                      123 Đường XYZ, Quận 1<br />
+                      268 Lý Thường Kiệt, Quận 10<br />
                       TP. Hồ Chí Minh
                     </p>
                   </div>
@@ -282,7 +283,13 @@ const ContactPage = () => {
             <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Bản đồ</h3>
               <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                <p className="text-gray-500">Bản đồ sẽ được tích hợp tại đây</p>
+                <iframe
+                  title="Bản đồ Trường Đại học Bách khoa TP.HCM"
+                  src="https://www.google.com/maps?q=268%20L%C3%BD%20Th%C6%B0%E1%BB%9Dng%20Ki%E1%BB%87t%2C%20Qu%E1%BA%ADn%2010%2C%20TP.HCM&output=embed"
+                  className="w-full h-full rounded-lg border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
               </div>
             </div>
           </div>

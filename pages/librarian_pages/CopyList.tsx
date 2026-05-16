@@ -107,7 +107,7 @@ const CopyList = () => {
           </p>
         </div>
         {/* <Link
-          to="/librarian/copies/new"
+          to="/librarianpage/copies/new"
           className="bg-secondary hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium shadow-sm transition-colors"
         >
           <Plus size={20} /> Thêm Bản Sao Mới
@@ -263,7 +263,7 @@ const CopyList = () => {
                     <div className="flex items-center gap-2 font-mono text-slate-600">
                       <span className="text-slate-300">||||</span>
                       <Link
-                        to={`/librarian/copies/${copy.id}`}
+                        to={`/librarianpage/copies/${copy.id}`}
                         className="hover:text-blue-600 hover:underline font-medium"
                       >
                         {copy.barcode}
@@ -313,7 +313,7 @@ const CopyList = () => {
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 *:transition-all transition-opacity [&_button]:p-1.5 [&_a]:p-1.5 row-actions">
                       <Link
-                        to={`/librarian/copies/${copy.id}`}
+                        to={`/librarianpage/copies/${copy.id}`}
                         className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
                         title="View Details"
                       >

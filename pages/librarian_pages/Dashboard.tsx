@@ -213,8 +213,8 @@ const Dashboard = () => {
           <h2 className="text-lg font-bold text-slate-800 flex items-center">
             <ShieldAlert size={20} className="mr-2 text-rose-600" /> Độc giả cần lưu ý (Dữ liệu rủi ro chi tiết)
           </h2>
-          <Link to="/librarian/users" className="text-sm text-blue-600 hover:underline font-medium flex items-center gap-1">
-            Quản lý độc giả <ArrowRight size={14} />
+          <Link to="/librarianpage/transactions" className="text-sm text-blue-600 hover:underline font-medium flex items-center gap-1">
+            Xem giao dịch <ArrowRight size={14} />
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -467,19 +467,19 @@ const Dashboard = () => {
       <div>
         <h2 className="font-bold text-lg text-slate-800 mb-4">Xử lý tác vụ nhanh & Fines ({summary?.pendingActions?.waitingForPickup || 0} đơn chờ lấy)</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Link to="/librarian/circulation" className="p-4 bg-blue-50 rounded-xl border border-blue-100 hover:shadow-md transition-all flex items-center gap-4 group">
+          <Link to="/librarianpage/circulation" className="p-4 bg-blue-50 rounded-xl border border-blue-100 hover:shadow-md transition-all flex items-center gap-4 group">
             <div className="bg-white p-3 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors"><BookOpen size={20} /></div>
             <span className="font-medium text-slate-700">Mượn sách mới</span>
           </Link>
-          <Link to="/librarian/circulation" className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 hover:shadow-md transition-all flex items-center gap-4 group">
+          <Link to="/librarianpage/circulation" className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 hover:shadow-md transition-all flex items-center gap-4 group">
             <div className="bg-white p-3 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><TrendingUp size={20} /></div>
             <span className="font-medium text-slate-700">Trả sách nhanh</span>
           </Link>
-          <Link to="/librarian/books" className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 hover:shadow-md transition-all flex items-center gap-4 group">
+          <Link to="/librarianpage/books" className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 hover:shadow-md transition-all flex items-center gap-4 group">
             <div className="bg-white p-3 rounded-lg text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors"><BookOpen size={20} /></div>
             <span className="font-medium text-slate-700">Thêm đầu sách</span>
           </Link>
-          <Link to="/librarian/requests" className="p-4 bg-orange-50 rounded-xl border border-orange-100 hover:shadow-md transition-all flex items-center gap-4 group relative">
+          <Link to="/librarianpage/requests" className="p-4 bg-orange-50 rounded-xl border border-orange-100 hover:shadow-md transition-all flex items-center gap-4 group relative">
             <div className="bg-white p-3 rounded-lg text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors"><AlertTriangle size={20} /></div>
             <span className="font-medium text-slate-700 flex-1">Xử lý yêu cầu phạt</span>
             {summary?.pendingActions.overdueTransactions ? (

@@ -12,10 +12,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import publicationsService from '../../api/publicationsService';
-import { PageResponse, PublicSearchResult } from '../../api/publicationTypes';
+import { Category, PageResponse, PublicSearchResult } from '../../api/publicationTypes';
 import searchHistoryService, { SearchHistoryItem } from '../../api/searchHistoryService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Badge, Button } from '../../components/ui';
+import categoriesService from '../../api/categoriesService';
 
 const BRANCHES = [
   { value: '', label: 'Tất cả cơ sở' },
@@ -23,12 +24,57 @@ const BRANCHES = [
   { value: 'Cơ sở 2 - Dĩ An', label: 'Cơ sở 2 - Dĩ An' },
 ];
 
-interface Category { id: string; name: string; }
+const SORT_OPTIONS = [
+  { value: 'relevance', label: 'Liên quan nhất' },
+  { value: 'newest', label: 'Mới nhất' },
+  { value: 'most_borrowed', label: 'Mượn nhiều nhất' },
+  { value: 'most_viewed', label: 'Xem nhiều nhất' },
+];
+
+const getCategoryName = (category: Category) =>
+  category.name || category.categoryName || 'Danh mục chưa đặt tên';
+
+const toSearchResult = (detail: any): PublicSearchResult => ({
+  publicationId: String(detail.publication.id),
+  title: detail.publication.title,
+  coverImageUrl: detail.publication.coverImageUrl ?? null,
+  publicationYear: detail.publication.publicationYear ?? null,
+  language: detail.publication.language ?? null,
+  description: detail.publication.aiSummary || detail.publication.description || null,
+  publisherName: detail.publisher?.name ?? null,
+  authorNames: (detail.authors ?? []).map((author: any) => author.name).join(', ') || null,
+  categoryNames: (detail.categories ?? []).map((category: any) => category.name).join(', ') || null,
+  totalItems: detail.items?.totalItems ?? detail.publication.totalItems ?? 0,
+  availableItems: detail.items?.totalAvailableItems ?? detail.publication.availableItems ?? 0,
+  avgRating: detail.ratings?.averageRating ?? 0,
+  borrowCount: detail.publication.borrowCount ?? 0,
+  viewCount: detail.publication.viewCount ?? 0,
+});
+
+const sortResults = (items: PublicSearchResult[], sortBy: string) => {
+  const sorted = [...items];
+  switch (sortBy) {
+    case 'relevance':
+      return sorted;
+    case 'rating':
+      return sorted.sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0));
+    case 'title_az':
+      return sorted.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
+    case 'most_borrowed':
+      return sorted.sort((a, b) => (b.borrowCount ?? 0) - (a.borrowCount ?? 0));
+    case 'most_viewed':
+      return sorted.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
+    case 'newest':
+    default:
+      return sorted.sort((a, b) => (b.publicationYear ?? 0) - (a.publicationYear ?? 0));
+  }
+};
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const { userType } = useAuth();
+  const canUseSearchHistory = () => Boolean(userType || localStorage.getItem('accessToken'));
   const prefix = useMemo(
     () => location.pathname.startsWith('/userpage') ? '/userpage' : '/publicpage',
     [location.pathname]
@@ -36,7 +82,6 @@ const SearchPage = () => {
 
   // Search state
   const [inputValue, setInputValue] = useState(() => searchParams.get('q') ?? '');
-  const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // Filter state
@@ -45,13 +90,13 @@ const SearchPage = () => {
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
   const [branch, setBranch] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
+  const [categoryId, setCategoryId] = useState(() => searchParams.get('categoryId') ?? '');
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sort') ?? 'relevance');
   const [page, setPage] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    publicationsService.searchCategories('')
+    categoriesService.getAllCategories()
       .then(res => setCategories(res.data ?? []))
       .catch(() => {});
   }, []);
@@ -69,7 +114,7 @@ const SearchPage = () => {
   // Debounced fetch suggestions khi gõ
   const fetchSuggestions = useMemo(() =>
     debounce((kw: string) => {
-      if (!userType) return;
+      if (!canUseSearchHistory()) return;
       searchHistoryService.getHistory(kw || undefined)
         .then(res => setHistory(res.data ?? []))
         .catch(() => {});
@@ -86,7 +131,7 @@ const SearchPage = () => {
   // Fetch recent khi focus lần đầu
   const handleInputFocus = () => {
     setShowSuggestions(true);
-    if (!userType) return;
+    if (!canUseSearchHistory()) return;
     searchHistoryService.getHistory()
       .then(res => setHistory(res.data ?? []))
       .catch(() => {});
@@ -112,7 +157,7 @@ const SearchPage = () => {
   const doSearch = (kw: string, pg = 0) => {
     setLoading(true);
     setShowSuggestions(false);
-    if (kw.trim() && userType) {
+    if (kw.trim() && canUseSearchHistory()) {
       searchHistoryService.saveHistory(kw.trim())
         .then(() => searchHistoryService.getHistory().then(r => setHistory(r.data ?? [])))
         .catch(() => {});
@@ -125,7 +170,7 @@ const SearchPage = () => {
       yearTo: yearTo ? Number(yearTo) : undefined,
       branch: branch || undefined,
       categoryId: categoryId || undefined,
-      sortBy,
+      sortBy: sortBy === 'relevance' ? 'newest' : sortBy,
       page: pg,
       size: 12,
     })
@@ -134,27 +179,103 @@ const SearchPage = () => {
       .finally(() => setLoading(false));
   };
 
+  const doHybridSearch = async (kw: string, pg = 0) => {
+    const normalizedKeyword = kw.trim();
+    if (!normalizedKeyword) {
+      doSearch('', pg);
+      return;
+    }
+
+    setLoading(true);
+    setShowSuggestions(false);
+    if (canUseSearchHistory()) {
+      searchHistoryService.saveHistory(normalizedKeyword)
+        .then(() => searchHistoryService.getHistory().then(r => setHistory(r.data ?? [])))
+        .catch(() => {});
+    }
+
+    try {
+      const semanticRes = await publicationsService.semanticSearch(normalizedKeyword, 50);
+      const publicationIds = (semanticRes.data?.publicationIds ?? []).map(String);
+      const detailResponses = await Promise.all(
+        publicationIds.map(id =>
+          publicationsService.getPublicationById(id)
+            .then(res => res.data)
+            .catch(() => null)
+        )
+      );
+
+      let content = detailResponses
+        .filter(Boolean)
+        .map(detail => toSearchResult(detail));
+
+      if (available) {
+        content = content.filter(item => item.availableItems > 0);
+      }
+      if (language) {
+        content = content.filter(item => item.language === language);
+      }
+      if (yearFrom) {
+        content = content.filter(item => (item.publicationYear ?? 0) >= Number(yearFrom));
+      }
+      if (yearTo) {
+        content = content.filter(item => (item.publicationYear ?? 0) <= Number(yearTo));
+      }
+      if (categoryId) {
+        const selectedCategory = categories.find(category => String(category.id) === String(categoryId));
+        if (selectedCategory) {
+          content = content.filter(item => item.categoryNames?.includes(getCategoryName(selectedCategory)));
+        }
+      }
+
+      content = sortResults(content, sortBy);
+
+      const pageSize = 12;
+      const totalElements = content.length;
+      const totalPages = Math.ceil(totalElements / pageSize);
+      const pageContent = content.slice(pg * pageSize, pg * pageSize + pageSize);
+
+      setResult({
+        content: pageContent,
+        totalElements,
+        totalPages,
+        currentPage: pg,
+        pageSize,
+        isFirst: pg === 0,
+        isLast: pg >= totalPages - 1,
+      });
+    } catch {
+      toast.error('Không thể tìm kiếm ngữ nghĩa lúc này');
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initial load and when sort/page changes
   useEffect(() => {
-    doSearch(activeKeyword, page);
+    doHybridSearch(activeKeyword, page);
   }, [activeKeyword, sortBy, page]);
 
   const handleSearch = () => {
-    if (searchMode === 'semantic') {
-      toast.info('Tính năng đang phát triển');
-      return;
-    }
     const kw = inputValue.trim();
     setActiveKeyword(kw);
     setPage(0);
     const p = new URLSearchParams(searchParams);
     kw ? p.set('q', kw) : p.delete('q');
+    categoryId ? p.set('categoryId', categoryId) : p.delete('categoryId');
+    sortBy === 'relevance' ? p.delete('sort') : p.set('sort', sortBy);
     setSearchParams(p, { replace: true });
   };
 
   const handleApplyFilters = () => {
     setPage(0);
-    doSearch(activeKeyword, 0);
+    const p = new URLSearchParams(searchParams);
+    activeKeyword ? p.set('q', activeKeyword) : p.delete('q');
+    categoryId ? p.set('categoryId', categoryId) : p.delete('categoryId');
+    sortBy === 'relevance' ? p.delete('sort') : p.set('sort', sortBy);
+    setSearchParams(p, { replace: true });
+    doHybridSearch(activeKeyword, 0);
   };
 
   const handleClearFilters = () => {
@@ -165,7 +286,10 @@ const SearchPage = () => {
     setBranch('');
     setCategoryId('');
     setPage(0);
-    doSearch(activeKeyword, 0);
+    doHybridSearch(activeKeyword, 0);
+    const p = new URLSearchParams(searchParams);
+    p.delete('categoryId');
+    setSearchParams(p, { replace: true });
   };
 
   const items = result?.content ?? [];
@@ -179,28 +303,6 @@ const SearchPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-grow flex flex-col">
-              <div className="flex items-center gap-1 mb-1.5">
-                <button
-                  onClick={() => setSearchMode('keyword')}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    searchMode === 'keyword'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-500 hover:text-gray-700 bg-gray-100'
-                  }`}
-                >
-                  Từ khóa
-                </button>
-                <button
-                  onClick={() => setSearchMode('semantic')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    searchMode === 'semantic'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-500 hover:text-gray-700 bg-gray-100'
-                  }`}
-                >
-                  Ngữ nghĩa
-                </button>
-              </div>
               <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
@@ -215,7 +317,7 @@ const SearchPage = () => {
                   if (e.key === 'Enter') handleSearch();
                   if (e.key === 'Escape') setShowSuggestions(false);
                 }}
-                placeholder={searchMode === 'semantic' ? 'Mô tả sách bạn muốn tìm...' : 'Nhập tên sách, tác giả, ISBN...'}
+                placeholder="Nhập tên sách, tác giả, ISBN hoặc mô tả nội dung bạn muốn tìm..."
                 className="block w-full pl-10 pr-28 py-2.5 border border-gray-300 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:text-sm"
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-1">
@@ -289,6 +391,26 @@ const SearchPage = () => {
               </button>
             </div>
 
+            {/* Sắp xếp */}
+            <div className="border-b border-gray-200 pb-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Sắp xếp</h4>
+              <div className="space-y-2">
+                {SORT_OPTIONS.map(opt => (
+                  <label key={opt.value} className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sort"
+                      value={opt.value}
+                      checked={sortBy === opt.value}
+                      onChange={() => { setSortBy(opt.value); setPage(0); }}
+                      className="border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-600">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Tình trạng */}
             <div className="border-b border-gray-200 pb-4">
               <h4 className="text-sm font-medium text-gray-900 mb-3">Tình trạng</h4>
@@ -306,15 +428,48 @@ const SearchPage = () => {
             {/* Chủ đề */}
             {categories.length > 0 && (
               <div className="border-b border-gray-200 pb-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Chủ đề</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-900">Danh mục</h4>
+                  <Link to="/publicpage/categories" className="text-xs text-blue-600 hover:underline">
+                    Xem tất cả
+                  </Link>
+                </div>
+                <div className="space-y-2 mb-3">
+                  {categories.slice(0, 6).map(category => (
+                    <label key={category.id} className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="category"
+                        value={category.id}
+                        checked={String(categoryId) === String(category.id)}
+                        onChange={() => setCategoryId(String(category.id))}
+                        className="border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-600 line-clamp-1">
+                        {getCategoryName(category)}
+                      </span>
+                    </label>
+                  ))}
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="category"
+                      value=""
+                      checked={!categoryId}
+                      onChange={() => setCategoryId('')}
+                      className="border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-600">Tất cả danh mục</span>
+                  </label>
+                </div>
                 <select
                   value={categoryId}
                   onChange={e => setCategoryId(e.target.value)}
                   className="w-full border border-gray-300 rounded-md text-sm px-3 py-2 bg-white focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">Tất cả chủ đề</option>
+                  <option value="">Chọn danh mục khác...</option>
                   {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>{getCategoryName(c)}</option>
                   ))}
                 </select>
               </div>
@@ -400,10 +555,9 @@ const SearchPage = () => {
                     onChange={e => { setSortBy(e.target.value); setPage(0); }}
                     className="border-gray-200 rounded-md text-sm font-medium text-gray-700 focus:ring-blue-500 focus:border-blue-500 py-1.5 pl-2 pr-8"
                   >
-                    <option value="newest">Mới nhất</option>
-                    <option value="most_borrowed">Được mượn nhiều</option>
-                    <option value="rating">Đánh giá cao nhất</option>
-                    <option value="title_az">Tên A-Z</option>
+                    {SORT_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="flex bg-gray-100 rounded-lg p-0.5">
@@ -487,7 +641,7 @@ const SearchPage = () => {
 
 const SearchListCard = ({ item, prefix }: { item: PublicSearchResult; prefix: string }) => (
   <div className="bg-white border border-gray-200 rounded-xl p-4 flex gap-5 hover:shadow-lg transition-all duration-300 group">
-    <div className="flex-shrink-0 w-32 h-48 bg-gray-100 rounded-lg overflow-hidden shadow-sm">
+    <Link to={`${prefix}/book/${item.publicationId}`} className="flex-shrink-0 w-32 h-48 bg-gray-100 rounded-lg overflow-hidden shadow-sm">
       {item.coverImageUrl ? (
         <img src={item.coverImageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
       ) : (
@@ -495,7 +649,7 @@ const SearchListCard = ({ item, prefix }: { item: PublicSearchResult; prefix: st
           <BookOpen size={32} className="text-gray-300" />
         </div>
       )}
-    </div>
+    </Link>
     <div className="flex-grow flex flex-col justify-between min-w-0">
       <div>
         <h3 className="text-lg font-bold text-gray-900 hover:text-blue-600 mb-1 leading-tight">
@@ -539,7 +693,7 @@ const SearchListCard = ({ item, prefix }: { item: PublicSearchResult; prefix: st
 
 const SearchGridCard = ({ item, prefix }: { item: PublicSearchResult; prefix: string }) => (
   <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 group flex flex-col">
-    <div className="h-48 bg-gray-100 overflow-hidden">
+    <Link to={`${prefix}/book/${item.publicationId}`} className="h-48 bg-gray-100 overflow-hidden block">
       {item.coverImageUrl ? (
         <img src={item.coverImageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
       ) : (
@@ -547,7 +701,7 @@ const SearchGridCard = ({ item, prefix }: { item: PublicSearchResult; prefix: st
           <BookOpen size={40} className="text-gray-300" />
         </div>
       )}
-    </div>
+    </Link>
     <div className="p-3 flex flex-col flex-1">
       <h3 className="font-bold text-gray-900 text-sm line-clamp-2 mb-1 hover:text-blue-600">
         <Link to={`${prefix}/book/${item.publicationId}`}>{item.title}</Link>

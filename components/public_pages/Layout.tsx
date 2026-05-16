@@ -10,6 +10,7 @@ export const Header = () => {
   const navigate = useNavigate();
   const { userType } = useAuth();
   const isAuthenticated = !!userType;
+  const logoTarget = userType === 'student' ? '/userpage/dashboard' : '/publicpage';
 
   const isActive = (path: string) =>
     location.pathname === path
@@ -22,7 +23,7 @@ export const Header = () => {
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/publicpage" className="flex items-center">
+            <Link to={logoTarget} className="flex items-center">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white mr-2">
                 <BookOpen size={20} />
               </div>
@@ -31,7 +32,7 @@ export const Header = () => {
                   SmartLibrary
                 </h1>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                  AI-Powered Discovery
+                  AI-POWERED DISCOVERY
                 </p>
               </div>
             </Link>
@@ -60,6 +61,12 @@ export const Header = () => {
             >
               Danh mục
             </Link>
+            <Link
+              to="/publicpage/contact"
+              className={isActive('/publicpage/contact')}
+            >
+              Liên hệ
+            </Link>
           </nav>
 
           {/* Right Actions */}
@@ -67,14 +74,14 @@ export const Header = () => {
             {isAuthenticated && (
               <button
                 onClick={() => navigate('/userpage/notifications')}
-                className="p-2 text-gray-400 hover:text-gray-600 relative"
+                className="p-2 text-gray-500 hover:text-gray-600 relative"
               >
                 <Bell size={20} />
               </button>
             )}
             <div className="h-6 w-px bg-gray-300"></div>
             {isAuthenticated ? (
-              <Link to={userType === 'librarian' ? '/librarian/dashboard' : '/userpage/dashboard'}>
+              <Link to={userType === 'librarian' ? '/librarianpage/dashboard' : '/userpage/dashboard'}>
                 <Button size="sm">Vào Dashboard</Button>
               </Link>
             ) : (
@@ -95,7 +102,7 @@ export const Header = () => {
           <div className="flex items-center md:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+              className="p-2 rounded-md text-gray-500 hover:text-gray-500 hover:bg-gray-100"
             >
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -119,9 +126,21 @@ export const Header = () => {
             >
               Tìm kiếm
             </Link>
+            <Link
+              to="/publicpage/categories"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Danh mục
+            </Link>
+            <Link
+              to="/publicpage/contact"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Liên hệ
+            </Link>
             {isAuthenticated ? (
               <Link
-                to={userType === 'librarian' ? '/librarian/dashboard' : '/userpage/dashboard'}
+                to={userType === 'librarian' ? '/librarianpage/dashboard' : '/userpage/dashboard'}
                 className="block px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-blue-50"
               >
                 Vào Dashboard
@@ -151,22 +170,22 @@ export const Header = () => {
 
 export const Footer = () => {
   return (
-    <footer className="bg-gray-900 text-white pt-12 pb-8">
+    <footer className="bg-white text-gray-900 pt-12 pb-8 border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center mb-4">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white mr-2">
                 <BookOpen size={20} />
               </div>
               <div>
                 <h3 className="text-lg font-bold">SmartLibrary</h3>
-                <p className="text-[10px] text-gray-400 uppercase">
-                  AI-Powered Discovery
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                  AI-POWERED DISCOVERY
                 </p>
               </div>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
+            <p className="text-gray-500 text-sm leading-relaxed">
               Hệ thống quản lý thư viện thông minh với công nghệ AI, giúp sinh
               viên tìm kiếm và khám phá tri thức hiệu quả hơn.
             </p>
@@ -175,7 +194,7 @@ export const Footer = () => {
                 href="https://www.facebook.com/sgnaht"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:bg-blue-600 hover:text-white transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-blue-600 hover:text-white transition-colors"
                 aria-label="Facebook"
               >
                 <svg
@@ -190,7 +209,7 @@ export const Footer = () => {
                 href="https://instagram.com/sgnaht"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-500 hover:text-white transition-all"
+                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-500 hover:text-white transition-all"
                 aria-label="Instagram"
               >
                 <svg
@@ -203,7 +222,7 @@ export const Footer = () => {
               </a>
               <a
                 href="tel:+84886765392"
-                className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:bg-green-600 hover:text-white transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-green-600 hover:text-white transition-colors"
                 aria-label="Gọi điện"
               >
                 <Phone size={20} />
@@ -212,8 +231,8 @@ export const Footer = () => {
           </div>
 
           <div>
-            <h4 className="text-lg font-semibold mb-4 text-white">Khám phá</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
+            <h4 className="text-lg font-semibold mb-4 text-gray-900">Khám phá</h4>
+            <ul className="space-y-2 text-sm text-gray-500">
               <li>
                 <Link to="/publicpage" className="hover:text-blue-400">
                   Trang chủ
@@ -252,8 +271,8 @@ export const Footer = () => {
           </div>
 
           <div>
-            <h4 className="text-lg font-semibold mb-4 text-white">Hỗ trợ</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
+            <h4 className="text-lg font-semibold mb-4 text-gray-900">Hỗ trợ</h4>
+            <ul className="space-y-2 text-sm text-gray-500">
               <li>
                 <Link to="/publicpage/about" className="hover:text-blue-400">
                   Giới thiệu
@@ -283,8 +302,8 @@ export const Footer = () => {
           </div>
 
           <div>
-            <h4 className="text-lg font-semibold mb-4 text-white">Liên hệ</h4>
-            <ul className="space-y-3 text-sm text-gray-400">
+            <h4 className="text-lg font-semibold mb-4 text-gray-900">Liên hệ</h4>
+            <ul className="space-y-3 text-sm text-gray-500">
               <li className="flex items-start">
                 <MapPin size={16} className="mt-0.5 mr-2 flex-shrink-0" />
                 <span>
@@ -312,16 +331,16 @@ export const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
+        <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
           <p>© 2025 SmartLibrary. All rights reserved.</p>
           <div className="flex space-x-6 mt-4 md:mt-0">
-            <Link to="/publicpage/privacy-policy" className="hover:text-white">
+            <Link to="/publicpage/privacy-policy" className="hover:text-blue-600">
               Chính sách bảo mật
             </Link>
-            <Link to="/publicpage/service-terms" className="hover:text-white">
+            <Link to="/publicpage/service-terms" className="hover:text-blue-600">
               Điều khoản dịch vụ
             </Link>
-            <Link to="/publicpage/cookie-policy" className="hover:text-white">
+            <Link to="/publicpage/cookie-policy" className="hover:text-blue-600">
               Chính sách Cookie
             </Link>
           </div>

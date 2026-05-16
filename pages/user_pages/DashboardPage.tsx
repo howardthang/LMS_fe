@@ -52,12 +52,10 @@ const DueBookItem = ({ tx }: { tx: UserTransaction }) => {
 
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-white border border-slate-100 rounded-xl hover:border-blue-200 hover:shadow-sm transition-all">
-      {/* Icon placeholder */}
       <div className="w-10 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
         <BookOpen size={20} className="text-blue-500" />
       </div>
 
-      {/* Info */}
       <div className="flex-grow min-w-0">
         <h4 className="font-bold text-slate-900 text-sm truncate">{tx.publicationTitle}</h4>
         <p className="text-xs text-slate-500 font-mono mt-0.5">{tx.barcode} · {tx.branch}</p>
@@ -330,14 +328,14 @@ const DashboardPage = () => {
                 <Mail size={16} className="text-slate-400 mt-0.5" />
                 <div>
                   <p className="text-xs text-slate-500">Email</p>
-                  <p className="text-sm font-bold text-slate-800">library@hcmut.edu.vn</p>
+                  <p className="text-sm font-bold text-slate-800">thang.hokhmtk22@hcmut.edu.vn</p>
                 </div>
               </a>
               <div className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
                 <Phone size={16} className="text-slate-400 mt-0.5" />
                 <div>
                   <p className="text-xs text-slate-500">Điện thoại</p>
-                  <p className="text-sm font-bold text-slate-800">(028) 3864 7256</p>
+                  <p className="text-sm font-bold text-slate-800">088 676 5392</p>
                 </div>
               </div>
             </div>

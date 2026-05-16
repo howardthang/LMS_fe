@@ -9,6 +9,7 @@ export interface PublicSearchResult {
   title: string;
   coverImageUrl: string | null;
   publicationYear: number | null;
+  language?: string | null;
   description: string | null;
   publisherName: string | null;
   authorNames: string | null;
@@ -17,6 +18,7 @@ export interface PublicSearchResult {
   availableItems: number;
   avgRating: number;
   borrowCount: number;
+  viewCount: number;
 }
 
 export interface PageResponse<T> {
@@ -63,8 +65,31 @@ export interface Category {
   id: string;
   categoryName?: string;
   name?: string;
+  bio?: string | null;
   parentCategoryId: string | null;
   parentCategoryName?: string | null;
+  publicationCount?: number;
+}
+
+export interface PublicLibraryStats {
+  totalPublications: number;
+  activeUsers: number;
+  totalBorrows: number;
+  totalCategories: number;
+  averageRating: number;
+  totalRatings: number;
+  satisfactionPercent: number;
+}
+
+export interface PublicTestimonial {
+  ratingId: string;
+  star: number;
+  comment: string;
+  fullName: string;
+  role: string;
+  profilePictureUrl: string | null;
+  publicationId?: string | null;
+  publicationTitle?: string | null;
 }
 
 // Tag interface
@@ -128,7 +153,18 @@ export interface LibrarianPublicationResponse {
   publisherName: string | null;
   categoryNames: string | null;
   createdAt: string | null;
+  aiProcessingStatus?: AiProcessingStatus;
+  aiProcessingError?: string | null;
+  aiProcessedAt?: string | null;
 }
+
+export type AiProcessingStatus =
+  | 'NOT_UPLOADED'
+  | 'NOT_STARTED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'SUCCESS'
+  | 'FAILED';
 
 // Newest Publication Response
 export interface NewestPublication {
@@ -177,6 +213,13 @@ export interface PublicationDetailResponse {
     tableOfContents: string | null;
     totalItems: number;
     availableItems: number;
+    borrowCount?: number;
+    viewCount?: number;
+    aiProcessingStatus?: AiProcessingStatus;
+    aiProcessingError?: string | null;
+    aiChunksCount?: number | null;
+    aiVectorsCount?: number | null;
+    aiProcessedAt?: string | null;
   };
   publisher: {
     id: string;

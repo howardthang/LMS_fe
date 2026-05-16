@@ -1,17 +1,20 @@
 import { CheckCircle, Lock, User } from 'lucide-react';
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Header } from '../../components/public_pages/Layout';
 import { Button, Input } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import authService from '../../api/authService';
-import { log } from 'console';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const from = typeof location.state?.from === 'string'
+    ? location.state.from
+    : '/userpage/dashboard';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,9 +25,11 @@ const LoginPage = () => {
       
       // Redirect dựa trên role thực tế
       if (role === 'librarian') {
-        navigate('/librarian/dashboard');
+        navigate('/librarianpage/dashboard');
       } else {
-        navigate('/dashboard');
+        navigate(from.startsWith('/publicpage') || from.startsWith('/userpage') ? from : '/userpage/dashboard', {
+          replace: true,
+        });
       }
     } catch (e) {
       alert(e.message);

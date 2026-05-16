@@ -1,7 +1,34 @@
 import { Award, BookOpen, Heart, Sparkles, Target, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import publicationsService from '../../api/publicationsService';
+import { PublicLibraryStats } from '../../api/publicationTypes';
+import { useAuth } from '../../contexts/AuthContext';
+
+const fallbackStats: PublicLibraryStats = {
+  totalPublications: 0,
+  activeUsers: 0,
+  totalBorrows: 0,
+  totalCategories: 0,
+  averageRating: 0,
+  totalRatings: 0,
+  satisfactionPercent: 0,
+};
+
+const formatNumber = (value: number) => value.toLocaleString('vi-VN');
 
 const AboutPage = () => {
+  const { userType } = useAuth();
+  const [stats, setStats] = useState<PublicLibraryStats>(fallbackStats);
+
+  useEffect(() => {
+    publicationsService.getPublicStats()
+      .then((response) => {
+        if (response.code === 200 && response.data) setStats(response.data);
+      })
+      .catch(() => setStats(fallbackStats));
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
@@ -138,25 +165,34 @@ const AboutPage = () => {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold mb-2">10,000+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                {formatNumber(stats.totalPublications)}
+              </div>
               <div className="text-blue-100">Đầu sách</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold mb-2">5,000+</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                {formatNumber(stats.activeUsers)}
+              </div>
               <div className="text-blue-100">Người dùng</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold mb-2">50,000+</div>
-              <div className="text-blue-100">Lượt mượn/năm</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                {formatNumber(stats.totalBorrows)}
+              </div>
+              <div className="text-blue-100">Lượt mượn</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold mb-2">99%</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">
+                {stats.totalRatings > 0 ? `${stats.satisfactionPercent}%` : '0'}
+              </div>
               <div className="text-blue-100">Độ hài lòng</div>
             </div>
           </div>
         </section>
 
         {/* CTA Section */}
+        {!userType && (
         <section className="text-center">
           <div className="bg-white rounded-xl shadow-sm p-8 md:p-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -182,6 +218,7 @@ const AboutPage = () => {
             </div>
           </div>
         </section>
+        )}
       </div>
     </div>
   );

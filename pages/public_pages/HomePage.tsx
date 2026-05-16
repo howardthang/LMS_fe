@@ -15,19 +15,26 @@ import {
   Users,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import searchHistoryService from '../../api/searchHistoryService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Badge, Button, StarRating } from '../../components/ui';
 import publicationsService from '../../api/publicationsService';
+import categoriesService from '../../api/categoriesService';
 import recommendationService, { RecommendedPublication } from '../../api/recommendationService';
-import { MostBorrowedPublication, NewestPublication } from '../../api/publicationTypes';
+import {
+  Category,
+  MostBorrowedPublication,
+  NewestPublication,
+  PublicLibraryStats,
+  PublicTestimonial,
+} from '../../api/publicationTypes';
+
+const BOOK_COVER_PLACEHOLDER = '/books/book-placeholder.svg';
 
 const HeroSection = () => {
   const navigate = useNavigate();
   const { userType } = useAuth();
   const [searchInput, setSearchInput] = useState('');
-  const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword');
   const [history, setHistory] = useState<import('../../api/searchHistoryService').SearchHistoryItem[]>([]);
 
   useEffect(() => {
@@ -38,10 +45,6 @@ const HeroSection = () => {
   }, [userType]);
 
   const handleSearch = (kw?: string) => {
-    if (searchMode === 'semantic') {
-      toast.info('Tính năng đang phát triển');
-      return;
-    }
     const q = (kw ?? searchInput).trim();
     navigate(q ? `/publicpage/search?q=${encodeURIComponent(q)}` : '/publicpage/search');
   };
@@ -79,35 +82,13 @@ const HeroSection = () => {
             </p>
 
             <div className="bg-white p-2 rounded-xl shadow-xl border border-gray-100 max-w-xl">
-              <div className="flex items-center gap-1 mb-2 px-1">
-                <button
-                  onClick={() => setSearchMode('keyword')}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    searchMode === 'keyword'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Từ khóa
-                </button>
-                <button
-                  onClick={() => setSearchMode('semantic')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    searchMode === 'semantic'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Ngữ nghĩa
-                </button>
-              </div>
               <div className="relative">
                 <input
                   type="text"
                   value={searchInput}
                   onChange={e => setSearchInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  placeholder={searchMode === 'semantic' ? 'Mô tả sách bạn muốn tìm...' : 'Tìm theo tên sách, tác giả, ISBN...'}
+                  placeholder="Nhập tên sách, tác giả, ISBN hoặc mô tả nội dung..."
                   className="w-full pl-4 pr-28 py-3 rounded-lg bg-gray-50 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-gray-900"
                 />
                 <Button
@@ -167,7 +148,7 @@ const HeroSection = () => {
                 />
               </Link>
               <Link
-                to="#"
+                to="/publicpage/categories"
                 className="text-gray-600 hover:text-gray-900 flex items-center group"
               >
                 Khám phá theo chủ đề{' '}
@@ -273,7 +254,7 @@ const BookCard = ({
   color = 'blue',
 }: any) => (
   <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col h-full">
-    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-t-xl bg-gray-100">
+    <Link to={`/publicpage/book/${id || 1}`} className="relative aspect-[3/4] w-full overflow-hidden rounded-t-xl bg-gray-100 block">
       <img
         src={image}
         alt={title}
@@ -298,7 +279,7 @@ const BookCard = ({
           {available} bản khả dụng
         </span>
       </div>
-    </div>
+    </Link>
     <div className="p-4 flex flex-col flex-grow">
       <h3 className="font-bold text-gray-900 line-clamp-2 text-base mb-1 leading-snug group-hover:text-blue-600 transition-colors">
         <Link to={`/publicpage/book/${id || 1}`}>{title}</Link>
@@ -324,21 +305,46 @@ const BookCard = ({
   </div>
 );
 
-const CategoryItem = ({ icon, title, desc, count, color }: any) => (
-  <div className="bg-white border border-gray-100 rounded-xl p-5 hover:border-blue-200 hover:shadow-lg transition-all cursor-pointer group">
+const CATEGORY_ACCENTS = [
+  { icon: <Sparkles size={20} />, color: 'bg-blue-500' },
+  { icon: <Code size={20} />, color: 'bg-indigo-500' },
+  { icon: <Database size={20} />, color: 'bg-red-500' },
+  { icon: <BarChart size={20} />, color: 'bg-green-500' },
+  { icon: <Globe size={20} />, color: 'bg-pink-500' },
+  { icon: <Book size={20} />, color: 'bg-yellow-500' },
+  { icon: <Scale size={20} />, color: 'bg-gray-600' },
+  { icon: <CheckCircle size={20} />, color: 'bg-purple-500' },
+];
+
+const getCategoryName = (category: Category) =>
+  category.name || category.categoryName || 'Danh mục chưa đặt tên';
+
+const formatCompactNumber = (value?: number) => {
+  const numericValue = value ?? 0;
+  return numericValue.toLocaleString('vi-VN');
+};
+
+const CategoryItem = ({ category, accent }: { category: Category; accent: typeof CATEGORY_ACCENTS[number] }) => (
+  <Link
+    to={`/publicpage/search?categoryId=${category.id}`}
+    className="block bg-white border border-gray-100 rounded-xl p-5 hover:border-blue-200 hover:shadow-lg transition-all cursor-pointer group"
+  >
     <div
-      className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${color} text-white shadow-md group-hover:scale-110 transition-transform`}
+      className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${accent.color} text-white shadow-md group-hover:scale-110 transition-transform`}
     >
-      {icon}
+      {accent.icon}
     </div>
     <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 mb-1">
-      {title}
+      {getCategoryName(category)}
     </h3>
-    <p className="text-xs text-gray-500 mb-3 line-clamp-1">{desc}</p>
-    <div className="flex items-center text-xs font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-      {count} tài liệu <ArrowRight size={12} className="ml-1" />
+    <p className="text-xs text-gray-500 mb-3 line-clamp-2 min-h-[32px]">
+      {category.bio || 'Tài liệu đang được phân loại trong danh mục này'}
+    </p>
+    <div className="flex items-center justify-between text-xs font-medium text-blue-600">
+      <span>{formatCompactNumber(category.publicationCount)} sách</span>
+      <ArrowRight size={12} className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
     </div>
-  </div>
+  </Link>
 );
 
 const TrendingItem = ({
@@ -354,16 +360,16 @@ const TrendingItem = ({
 }: any) => (
   <div className="flex items-start bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
     <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-purple-500"></div>
-    <div className="mr-4 relative">
+    <Link to={`/publicpage/book/${id || 1}`} className="mr-4 relative flex-shrink-0">
       <img
-        src={image || `https://picsum.photos/100/150?random=${rank}`}
+        src={image || BOOK_COVER_PLACEHOLDER}
         alt={title}
         className="w-20 h-28 object-cover rounded shadow-sm"
       />
       <div className="absolute -top-2 -left-2 w-8 h-8 bg-gray-900 text-white flex items-center justify-center rounded-full font-bold text-sm border-2 border-white shadow">
         #{rank}
       </div>
-    </div>
+    </Link>
     <div className="flex-grow min-w-0">
       <div className="flex items-center space-x-2 mb-1">
         <Badge variant="secondary" className="text-[10px] py-0">
@@ -406,7 +412,7 @@ const FeatureBox = ({ icon, title, desc }: any) => (
     <h3 className="text-lg font-bold text-gray-900 mb-3">{title}</h3>
     <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
     <Link
-      to="#"
+      to="/publicpage/guide"
       className="inline-flex items-center text-sm font-medium text-blue-600 mt-4 hover:underline"
     >
       Tìm hiểu thêm <ChevronRight size={14} />
@@ -414,26 +420,37 @@ const FeatureBox = ({ icon, title, desc }: any) => (
   </div>
 );
 
-const StatBox = ({ number, label, icon: Icon, color }: any) => (
-  <div
-    className={`flex flex-col items-center justify-center p-8 bg-${color}-50 rounded-2xl`}
-  >
-    <Icon size={32} className={`text-${color}-600 mb-4`} />
+const statColors: Record<string, { bg: string; text: string }> = {
+  blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
+  purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
+  green: { bg: 'bg-green-50', text: 'text-green-600' },
+  pink: { bg: 'bg-pink-50', text: 'text-pink-600' },
+};
+
+const StatBox = ({ number, label, icon: Icon, color }: any) => {
+  const colorClass = statColors[color] || statColors.blue;
+  return (
+  <div className={`flex flex-col items-center justify-center p-8 ${colorClass.bg} rounded-2xl`}>
+    <Icon size={32} className={`${colorClass.text} mb-4`} />
     <span className="text-4xl font-extrabold text-gray-900 mb-2">{number}</span>
     <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">
       {label}
     </span>
   </div>
-);
+  );
+};
 
-const TestimonialCard = ({ quote, name, role, avatar }: any) => (
+const TestimonialCard = ({ quote, name, role, avatar, star = 5 }: any) => (
   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
     <div className="flex gap-1 text-yellow-400 mb-4">
-      <Star size={16} fill="currentColor" />
-      <Star size={16} fill="currentColor" />
-      <Star size={16} fill="currentColor" />
-      <Star size={16} fill="currentColor" />
-      <Star size={16} fill="currentColor" />
+      {Array.from({ length: 5 }).map((_, index) => (
+        <Star
+          key={index}
+          size={16}
+          fill={index < star ? 'currentColor' : 'none'}
+          className={index < star ? 'text-yellow-400' : 'text-gray-300'}
+        />
+      ))}
     </div>
     <p className="text-gray-700 italic mb-6 text-sm leading-relaxed">
       "{quote}"
@@ -452,6 +469,40 @@ const TestimonialCard = ({ quote, name, role, avatar }: any) => (
   </div>
 );
 
+const fallbackStats: PublicLibraryStats = {
+  totalPublications: 0,
+  activeUsers: 0,
+  totalBorrows: 0,
+  totalCategories: 0,
+  averageRating: 0,
+  totalRatings: 0,
+  satisfactionPercent: 0,
+};
+
+const fallbackTestimonials = [
+  {
+    quote: 'Tìm kiếm AI thực sự thay đổi cách tôi học tập. Trước đây mất cả tiếng để tìm tài liệu phù hợp, giờ chỉ cần vài phút.',
+    name: 'Nguyễn Thị Mai',
+    role: 'Sinh viên Công nghệ thông tin',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    star: 5,
+  },
+  {
+    quote: 'Hệ thống quản lý mượn trả rất tiện lợi. Tôi có thể theo dõi sách đang mượn, gia hạn online và nhận thông báo tự động.',
+    name: 'Trần Văn Nam',
+    role: 'Sinh viên thư viện',
+    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+    star: 5,
+  },
+  {
+    quote: 'Gợi ý cá nhân hóa giúp tôi khám phá nhiều sách hay mà trước đây không biết tới. Giao diện đẹp và dễ sử dụng.',
+    name: 'Lê Thị Hương',
+    role: 'Sinh viên',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    star: 5,
+  },
+];
+
 const HomePage = () => {
   const { userType } = useAuth();
   const [newestPublications, setNewestPublications] = useState<NewestPublication[]>([]);
@@ -462,6 +513,10 @@ const HomePage = () => {
 
   const [recommendations, setRecommendations] = useState<RecommendedPublication[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [stats, setStats] = useState<PublicLibraryStats>(fallbackStats);
+  const [testimonials, setTestimonials] = useState<PublicTestimonial[]>([]);
 
   useEffect(() => {
     if (userType !== 'student') return;
@@ -502,7 +557,40 @@ const HomePage = () => {
 
     fetchNewest();
     fetchMostBorrowed();
+
+    categoriesService.getAllCategories()
+      .then(res => {
+        if (res.code === 200) setCategories(res.data ?? []);
+      })
+      .catch(() => setCategories([]))
+      .finally(() => setLoadingCategories(false));
+
+    publicationsService.getPublicStats()
+      .then(res => {
+        if (res.code === 200 && res.data) setStats(res.data);
+      })
+      .catch(() => setStats(fallbackStats));
+
+    publicationsService.getPublicTestimonials(3)
+      .then(res => {
+        if (res.code === 200) setTestimonials(res.data ?? []);
+      })
+      .catch(() => setTestimonials([]));
   }, []);
+
+  const featuredCategories = [...categories]
+    .sort((a, b) => (b.publicationCount ?? 0) - (a.publicationCount ?? 0) || getCategoryName(a).localeCompare(getCategoryName(b), 'vi'))
+    .slice(0, 8);
+
+  const displayTestimonials = testimonials.length > 0
+    ? testimonials.map((item) => ({
+        quote: item.comment,
+        name: item.fullName,
+        role: item.role,
+        avatar: item.profilePictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.fullName)}&background=2563eb&color=fff`,
+        star: item.star,
+      }))
+    : fallbackTestimonials;
 
   return (
     <div className="bg-white">
@@ -558,7 +646,7 @@ const HomePage = () => {
                 rating={pub.ratingAverage}
                 reviews={pub.ratingCount}
                 available={pub.availableItems}
-                image={pub.coverImageUrl ?? `https://picsum.photos/seed/${pub.publicationId}/300/400`}
+                image={pub.coverImageUrl ?? BOOK_COVER_PLACEHOLDER}
                 color="purple"
               />
             ))}
@@ -581,68 +669,33 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <CategoryItem
-              icon={<Sparkles size={20} />}
-              title="Trí tuệ nhân tạo"
-              desc="Machine Learning, Deep Learning"
-              count="1,234"
-              color="bg-blue-500"
-            />
-            <CategoryItem
-              icon={<BarChart size={20} />}
-              title="Kinh tế - Tài chính"
-              desc="Vi mô, Vĩ mô, Tài chính doanh nghiệp"
-              count="892"
-              color="bg-green-500"
-            />
-            <CategoryItem
-              icon={<Database size={20} />}
-              title="Dược - Y sinh"
-              desc="Dược lý, Hóa dược, Y học lâm sàng"
-              count="756"
-              color="bg-red-500"
-            />
-            <CategoryItem
-              icon={<Globe size={20} />}
-              title="Kỹ năng mềm"
-              desc="Giao tiếp, Lãnh đạo, Quản lý"
-              count="567"
-              color="bg-purple-500"
-            />
-            <CategoryItem
-              icon={<Book size={20} />}
-              title="Luận văn, Khóa luận"
-              desc="Thạc sĩ, Tiến sĩ, Tốt nghiệp"
-              count="2,145"
-              color="bg-yellow-500"
-            />
-            <CategoryItem
-              icon={<Code size={20} />}
-              title="Kỹ thuật - Công nghệ"
-              desc="Điện tử, Cơ khí, Xây dựng"
-              count="1,089"
-              color="bg-indigo-500"
-            />
-            <CategoryItem
-              icon={<Globe size={20} />}
-              title="Ngoại ngữ"
-              desc="Tiếng Anh, Tiếng Trung, IELTS"
-              count="678"
-              color="bg-pink-500"
-            />
-            <CategoryItem
-              icon={<Scale size={20} />}
-              title="Luật - Chính trị"
-              desc="Luật dân sự, Luật hình sự"
-              count="445"
-              color="bg-gray-600"
-            />
-          </div>
+          {loadingCategories ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="h-40 rounded-xl bg-white border border-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : featuredCategories.length === 0 ? (
+            <div className="rounded-xl bg-white border border-gray-100 p-8 text-center text-gray-500">
+              Chưa có danh mục nào trong hệ thống.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {featuredCategories.map((category, index) => (
+                <CategoryItem
+                  key={category.id}
+                  category={category}
+                  accent={CATEGORY_ACCENTS[index % CATEGORY_ACCENTS.length]}
+                />
+              ))}
+            </div>
+          )}
           <div className="text-center mt-10">
-            <Button variant="outline" className="px-8">
-              Xem tất cả chủ đề
-            </Button>
+            <Link to="/publicpage/categories">
+              <Button variant="outline" className="px-8">
+                Xem tất cả chủ đề
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -671,7 +724,7 @@ const HomePage = () => {
                     rating={pub.ratingAverage}
                     reviews={pub.ratingCount}
                     available={pub.availableItems}
-                    image={pub.coverImageUrl || `https://picsum.photos/300/450?random=${pub.publicationId}`}
+                    image={pub.coverImageUrl || BOOK_COVER_PLACEHOLDER}
                     tag="MỚI"
                     color="green"
                   />
@@ -757,38 +810,39 @@ const HomePage = () => {
             />
           </div>
 
-          {/* AI CTA Banner */}
-          <div className="mt-16 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between shadow-2xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-            <div className="relative z-10 max-w-2xl">
-              <h3 className="text-2xl font-bold mb-4">
-                Trải nghiệm sức mạnh AI ngay hôm nay
-              </h3>
-              <p className="text-blue-100 mb-6">
-                Hơn 5,000 sinh viên đã sử dụng SmartLibrary để cải thiện hiệu
-                quả học tập. Đăng ký miễn phí và khám phá cách AI có thể giúp
-                bạn tìm kiếm tri thức nhanh hơn.
-              </p>
-              <ul className="space-y-2 mb-0">
-                <li className="flex items-center">
-                  <CheckCircle size={16} className="text-green-400 mr-2" /> Miễn
-                  phí 100% cho sinh viên
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle size={16} className="text-green-400 mr-2" />{' '}
-                  Không giới hạn số lượng tìm kiếm
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle size={16} className="text-green-400 mr-2" /> Hỗ
-                  trợ 24/7
-                </li>
-              </ul>
-            </div>
-            <div className="relative z-10 mt-8 md:mt-0 flex-shrink-0">
-              <Button
-                size="lg"
-                variant="outline"
-                className="
+          {!userType && (
+            <div className="mt-16 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between shadow-2xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+              <div className="relative z-10 max-w-2xl">
+                <h3 className="text-2xl font-bold mb-4">
+                  Trải nghiệm sức mạnh AI ngay hôm nay
+                </h3>
+                <p className="text-blue-100 mb-6">
+                  Hơn 5,000 sinh viên đã sử dụng SmartLibrary để cải thiện hiệu
+                  quả học tập. Đăng ký miễn phí và khám phá cách AI có thể giúp
+                  bạn tìm kiếm tri thức nhanh hơn.
+                </p>
+                <ul className="space-y-2 mb-0">
+                  <li className="flex items-center">
+                    <CheckCircle size={16} className="text-green-400 mr-2" /> Miễn
+                    phí 100% cho sinh viên
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle size={16} className="text-green-400 mr-2" />{' '}
+                    Không giới hạn số lượng tìm kiếm
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle size={16} className="text-green-400 mr-2" /> Hỗ
+                    trợ 24/7
+                  </li>
+                </ul>
+              </div>
+              <div className="relative z-10 mt-8 md:mt-0 flex-shrink-0">
+                <Link to="/publicpage/register">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="
         bg-white
         text-blue-800
         border border-white/80
@@ -801,11 +855,13 @@ const HomePage = () => {
         hover:shadow-md
         hover:-translate-y-[1px]
       "
-              >
-                Đăng ký miễn phí <ArrowRight size={18} className="ml-2" />
-              </Button>
+                  >
+                    Đăng ký miễn phí <ArrowRight size={18} className="ml-2" />
+                  </Button>
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -821,25 +877,25 @@ const HomePage = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <StatBox
-              number="15,000+"
+              number={formatCompactNumber(stats.totalPublications)}
               label="Tài liệu"
               icon={Book}
               color="blue"
             />
             <StatBox
-              number="5,000+"
+              number={formatCompactNumber(stats.activeUsers)}
               label="Người dùng"
               icon={Users}
               color="purple"
             />
             <StatBox
-              number="50,000+"
+              number={formatCompactNumber(stats.totalBorrows)}
               label="Lượt mượn"
               icon={ChevronRight}
               color="green"
             />
             <StatBox
-              number="98%"
+              number={stats.totalRatings > 0 ? `${stats.satisfactionPercent}%` : '0'}
               label="Hài lòng"
               icon={CheckCircle}
               color="pink"
@@ -867,44 +923,30 @@ const HomePage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <TestimonialCard
-              quote="Tìm kiếm AI thực sự thay đổi cách tôi học tập. Trước đây mất cả tiếng để tìm tài liệu phù hợp, giờ chỉ cần vài phút. Gợi ý sách cũng rất chính xác!"
-              name="Nguyễn Thị Mai"
-              role="Sinh viên Công nghệ thông tin"
-              avatar="https://randomuser.me/api/portraits/women/44.jpg"
-            />
-            <TestimonialCard
-              quote="Hệ thống quản lý mượn trả rất tiện lợi. Tôi có thể theo dõi tất cả sách đang mượn, gia hạn online và nhận thông báo tự động. Không còn lo quá hạn nữa!"
-              name="Trần Văn Nam"
-              role="Sinh viên Kinh tế"
-              avatar="https://randomuser.me/api/portraits/men/32.jpg"
-            />
-            <TestimonialCard
-              quote="Gợi ý cá nhân hóa giúp tôi khám phá nhiều sách hay mà trước đây không biết tới. Giao diện đẹp, dễ sử dụng. Đáng để giới thiệu cho bạn bè!"
-              name="Lê Thị Hương"
-              role="Sinh viên Dược"
-              avatar="https://randomuser.me/api/portraits/women/65.jpg"
-            />
+            {displayTestimonials.map((testimonial, index) => (
+              <TestimonialCard key={`${testimonial.name}-${index}`} {...testimonial} />
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Footer CTA */}
-      <section className="bg-blue-700 py-16 text-center text-white relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-700 to-indigo-800 opacity-90"></div>
-        <div className="relative z-10 max-w-4xl mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Sẵn sàng bắt đầu?
-          </h2>
-          <p className="text-blue-100 text-lg mb-8">
-            Tham gia cùng hàng ngàn sinh viên đang sử dụng SmartLibrary để nâng
-            cao hiệu quả học tập.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button
-              size="lg"
-              variant="outline"
-              className="
+      {!userType && (
+        <section className="bg-blue-700 py-16 text-center text-white relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-700 to-indigo-800 opacity-90"></div>
+          <div className="relative z-10 max-w-4xl mx-auto px-4">
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              Sẵn sàng bắt đầu?
+            </h2>
+            <p className="text-blue-100 text-lg mb-8">
+              Tham gia cùng hàng ngàn sinh viên đang sử dụng SmartLibrary để nâng
+              cao hiệu quả học tập.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <Link to="/publicpage/register">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="
         bg-white
         text-blue-800
         border border-white/80
@@ -917,13 +959,15 @@ const HomePage = () => {
         hover:shadow-md
         hover:-translate-y-[1px]
       "
-            >
-              Đăng ký miễn phí
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="
+                >
+                  Đăng ký miễn phí
+                </Button>
+              </Link>
+              <Link to="/publicpage/search">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="
         bg-white
         text-blue-800
         border border-white/80
@@ -936,16 +980,18 @@ const HomePage = () => {
         hover:shadow-md
         hover:-translate-y-[1px]
       "
-            >
-              Khám phá ngay
-            </Button>
+                >
+                  Khám phá ngay
+                </Button>
+              </Link>
+            </div>
+            <p className="text-xs text-blue-300 mt-6">
+              Không cần thẻ tín dụng • Miễn phí vĩnh viễn cho sinh viên • Bắt đầu
+              trong 30 giây
+            </p>
           </div>
-          <p className="text-xs text-blue-300 mt-6">
-            Không cần thẻ tín dụng • Miễn phí vĩnh viễn cho sinh viên • Bắt đầu
-            trong 30 giây
-          </p>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 };

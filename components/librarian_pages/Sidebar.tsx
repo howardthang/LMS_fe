@@ -20,19 +20,19 @@ const Sidebar = () => {
   const { logout } = useAuth();
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Trang chủ', path: '/librarian/dashboard' },
+    { icon: LayoutDashboard, label: 'Trang chủ', path: '/librarianpage/dashboard' },
     {
       icon: RefreshCcw,
       label: 'Quản lý mượn - trả sách',
-      path: '/librarian/circulation',
+      path: '/librarianpage/circulation',
     },
-    { icon: Book, label: 'Đầu sách', path: '/librarian/books', badge: 842 },
-    { icon: Barcode, label: 'Bản sao', path: '/librarian/copies' },
-    { icon: ClipboardList, label: 'Lịch sử giao dịch', path: '/librarian/transactions' },
+    { icon: Book, label: 'Đầu sách', path: '/librarianpage/books', badge: 842 },
+    { icon: Barcode, label: 'Bản sao', path: '/librarianpage/copies' },
+    { icon: ClipboardList, label: 'Lịch sử giao dịch', path: '/librarianpage/transactions' },
     {
       icon: Inbox,
       label: 'Yêu cầu',
-      path: '/librarian/requests',
+      path: '/librarianpage/requests',
       badge: 12,
       badgeColor: 'bg-red-100 text-red-600',
     },
@@ -41,8 +41,8 @@ const Sidebar = () => {
   const { unreadCount } = useNotifications();
 
   const systemItems = [
-    { icon: Settings, label: 'Cài đặt', path: '/librarian/settings' },
-    { icon: Bell, label: 'Thông báo', path: '/librarian/notifications', badge: unreadCount > 0 ? unreadCount : undefined, badgeColor: 'bg-red-100 text-red-600' },
+    { icon: Settings, label: 'Cài đặt', path: '/librarianpage/settings' },
+    { icon: Bell, label: 'Thông báo', path: '/librarianpage/notifications', badge: unreadCount > 0 ? unreadCount : undefined, badgeColor: 'bg-red-100 text-red-600' },
   ];
 
   const isActive = (path: string) => {

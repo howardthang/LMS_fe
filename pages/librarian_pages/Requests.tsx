@@ -5,7 +5,7 @@ const Requests = () => {
   const requests = [
     {
       id: 1,
-      user: { name: 'Trần Minh Hoàng', id: 'SV2021001234', avatar: 'https://picsum.photos/id/10/40/40' },
+      user: { name: 'Trần Minh Hoàng', id: 'SV2021001234' },
       book: { title: 'Deep Learning with PyTorch', author: 'Eli Stevens, Luca Antiga' },
       date: '10/12/2025',
       status: 'Mới',
@@ -13,7 +13,7 @@ const Requests = () => {
     },
     {
       id: 2,
-      user: { name: 'Nguyễn Thu Hà', id: 'SV2020005678', avatar: 'https://picsum.photos/id/20/40/40' },
+      user: { name: 'Nguyễn Thu Hà', id: 'SV2020005678' },
       book: { title: 'Pharmacology for Nurses', author: 'Michael Adams, Norman Holland' },
       date: '09/12/2025',
       status: 'Đang xử lý',
@@ -21,7 +21,7 @@ const Requests = () => {
     },
     {
       id: 3,
-      user: { name: 'Lê Văn Đức', id: 'SV2021002456', avatar: 'https://picsum.photos/id/33/40/40' },
+      user: { name: 'Lê Văn Đức', id: 'SV2021002456' },
       book: { title: 'Principles of Macroeconomics', author: 'N. Gregory Mankiw' },
       date: '08/12/2025',
       status: 'Đã chấp nhận',
@@ -29,7 +29,7 @@ const Requests = () => {
     },
      {
       id: 4,
-      user: { name: 'Phạm Mai Anh', id: 'SV2020003789', avatar: 'https://picsum.photos/id/44/40/40' },
+      user: { name: 'Phạm Mai Anh', id: 'SV2020003789' },
       book: { title: 'The Design of Everyday Things', author: 'Don Norman' },
       date: '07/12/2025',
       status: 'Mới',
@@ -106,7 +106,9 @@ const Requests = () => {
                 <td className="px-6 py-4"><input type="checkbox" className="rounded border-gray-300" /></td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <img src={req.user.avatar} alt="" className="w-8 h-8 rounded-full" />
+                    <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-semibold">
+                      {req.user.name.split(' ').slice(-2).map(part => part[0]).join('')}
+                    </div>
                     <div>
                       <div className="text-sm font-medium text-slate-900">{req.user.name}</div>
                       <div className="text-xs text-slate-500">{req.user.id}</div>

@@ -1,6 +1,8 @@
 import { Bell, Lock, Moon, Palette, Save, Shield } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button, Input } from '../../components/ui';
+import usersService from '../../api/usersService';
 
 const SettingsPage = () => {
   const [notifications, setNotifications] = useState({
@@ -22,6 +24,90 @@ const SettingsPage = () => {
     fontSize: 'medium',
     language: 'vi',
   });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('studentSettings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.notifications) setNotifications(parsed.notifications);
+        if (parsed.privacy) setPrivacy(parsed.privacy);
+        if (parsed.appearance) setAppearance(parsed.appearance);
+      } catch {
+        localStorage.removeItem('studentSettings');
+      }
+    }
+
+    usersService.getMyProfile()
+      .then((res) => {
+        if (res.code === 200) {
+          setPrivacy((prev) => ({
+            ...prev,
+            allowRecommendations: res.data.aiPersonalizationEnabled,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCancel = () => {
+    const savedSettings = localStorage.getItem('studentSettings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setNotifications(parsed.notifications ?? notifications);
+        setPrivacy(parsed.privacy ?? privacy);
+        setAppearance(parsed.appearance ?? appearance);
+      } catch {
+        localStorage.removeItem('studentSettings');
+      }
+    }
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  };
+
+  const handleSave = async () => {
+    if (passwordForm.currentPassword || passwordForm.newPassword || passwordForm.confirmPassword) {
+      if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+        toast.error('Vui lòng nhập đầy đủ thông tin đổi mật khẩu.');
+        return;
+      }
+      if (passwordForm.newPassword.length < 8) {
+        toast.error('Mật khẩu mới phải có ít nhất 8 ký tự.');
+        return;
+      }
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        toast.error('Mật khẩu xác nhận không khớp.');
+        return;
+      }
+    }
+
+    try {
+      setIsSaving(true);
+      await usersService.updateMyProfile({
+        aiPersonalizationEnabled: privacy.allowRecommendations,
+      });
+      if (passwordForm.currentPassword) {
+        await usersService.changePassword(passwordForm);
+      }
+      localStorage.setItem('studentSettings', JSON.stringify({
+        notifications,
+        privacy,
+        appearance,
+      }));
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success('Đã lưu cài đặt.');
+    } catch (error: any) {
+      toast.error(error?.message || 'Không thể lưu cài đặt.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
@@ -355,8 +441,24 @@ const SettingsPage = () => {
               Đổi mật khẩu
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input type="password" placeholder="Mật khẩu hiện tại" />
-              <Input type="password" placeholder="Mật khẩu mới" />
+              <Input
+                type="password"
+                placeholder="Mật khẩu hiện tại"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+              />
+              <Input
+                type="password"
+                placeholder="Mật khẩu mới"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+              />
+              <Input
+                type="password"
+                placeholder="Xác nhận mật khẩu mới"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+              />
             </div>
             <p className="text-xs text-gray-500 mt-2">
               Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và
@@ -368,9 +470,9 @@ const SettingsPage = () => {
 
       {/* Save Button */}
       <div className="flex justify-end gap-3">
-        <Button variant="outline">Hủy</Button>
-        <Button className="flex items-center px-6">
-          <Save size={18} className="mr-2" /> Lưu thay đổi
+        <Button variant="outline" onClick={handleCancel} disabled={isSaving}>Hủy</Button>
+        <Button className="flex items-center px-6" onClick={handleSave} disabled={isSaving}>
+          <Save size={18} className="mr-2" /> {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
         </Button>
       </div>
     </div>

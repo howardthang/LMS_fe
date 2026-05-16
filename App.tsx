@@ -71,15 +71,58 @@ const PUBLIC_PREFIX = '/publicpage';
 const USER_PREFIX = '/userpage';
 const LIB_PREFIX = '/librarianpage';
 
+const PublicRoutes = () => (
+  <Routes>
+    <Route path={`${PUBLIC_PREFIX}`} element={<HomePage />} />
+    <Route
+      path={`${PUBLIC_PREFIX}/search`}
+      element={<PublicSearchPage />}
+    />
+    <Route
+      path={`${PUBLIC_PREFIX}/book/:id`}
+      element={<BookDetailPage />}
+    />
+    <Route path={`${PUBLIC_PREFIX}/about`} element={<AboutPage />} />
+    <Route path={`${PUBLIC_PREFIX}/guide`} element={<UserGuidePage />} />
+    <Route path={`${PUBLIC_PREFIX}/faq`} element={<FAQPage />} />
+    <Route path={`${PUBLIC_PREFIX}/contact`} element={<ContactPage />} />
+    <Route path={`${PUBLIC_PREFIX}/terms`} element={<TermsPage />} />
+    <Route
+      path={`${PUBLIC_PREFIX}/categories`}
+      element={<CategoriesPage />}
+    />
+    <Route
+      path={`${PUBLIC_PREFIX}/privacy-policy`}
+      element={<PrivacyPolicyPage />}
+    />
+    <Route
+      path={`${PUBLIC_PREFIX}/service-terms`}
+      element={<ServiceTermsPage />}
+    />
+    <Route
+      path={`${PUBLIC_PREFIX}/cookie-policy`}
+      element={<CookiePolicyPage />}
+    />
+    <Route path="*" element={<Navigate to="/404" replace />} />
+  </Routes>
+);
+
 // Protected Route Component
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   allowedUserType: 'student' | 'librarian' | 'both';
 }> = ({ children, allowedUserType }) => {
   const { userType } = useAuth();
+  const location = useLocation();
 
   if (!userType) {
-    return <Navigate to={`${PUBLIC_PREFIX}/login`} replace />;
+    return (
+      <Navigate
+        to={`${PUBLIC_PREFIX}/login`}
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
   }
 
   if (allowedUserType !== 'both' && userType !== allowedUserType) {
@@ -227,6 +270,18 @@ const AppContent = () => {
     );
   }
 
+  if (userType === 'librarian' && location.pathname.startsWith(PUBLIC_PREFIX)) {
+    return <Navigate to={`${LIB_PREFIX}/dashboard`} replace />;
+  }
+
+  if (userType === 'student' && location.pathname.startsWith(PUBLIC_PREFIX)) {
+    return (
+      <ProtectedLayout>
+        <PublicRoutes />
+      </ProtectedLayout>
+    );
+  }
+
   // User protected pages
   if (isUserProtectedPage) {
     return (
@@ -310,39 +365,7 @@ const AppContent = () => {
   // Public pages
   return (
     <Layout>
-      <Routes>
-        <Route path={`${PUBLIC_PREFIX}`} element={<HomePage />} />
-        <Route
-          path={`${PUBLIC_PREFIX}/search`}
-          element={<PublicSearchPage />}
-        />
-        <Route
-          path={`${PUBLIC_PREFIX}/book/:id`}
-          element={<BookDetailPage />}
-        />
-        <Route path={`${PUBLIC_PREFIX}/about`} element={<AboutPage />} />
-        <Route path={`${PUBLIC_PREFIX}/guide`} element={<UserGuidePage />} />
-        <Route path={`${PUBLIC_PREFIX}/faq`} element={<FAQPage />} />
-        <Route path={`${PUBLIC_PREFIX}/contact`} element={<ContactPage />} />
-        <Route path={`${PUBLIC_PREFIX}/terms`} element={<TermsPage />} />
-        <Route
-          path={`${PUBLIC_PREFIX}/categories`}
-          element={<CategoriesPage />}
-        />
-        <Route
-          path={`${PUBLIC_PREFIX}/privacy-policy`}
-          element={<PrivacyPolicyPage />}
-        />
-        <Route
-          path={`${PUBLIC_PREFIX}/service-terms`}
-          element={<ServiceTermsPage />}
-        />
-        <Route
-          path={`${PUBLIC_PREFIX}/cookie-policy`}
-          element={<CookiePolicyPage />}
-        />
-        <Route path="*" element={<Navigate to="/404" replace />} />
-      </Routes>
+      <PublicRoutes />
     </Layout>
   );
 };

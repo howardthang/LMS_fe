@@ -53,7 +53,6 @@ const RegisterPage = () => {
         studentId: Number(formData.studentId)
       };
       const response = await authService.register(payload);
-      console.log(response);
       if (response && response.code === 200) {
         alert(response.message || 'Đăng ký thành công!');
         navigate('/publicpage/check-email');
@@ -229,13 +228,13 @@ const RegisterPage = () => {
                 />
                 <span className="ml-2 text-sm text-gray-600">
                   Tôi đồng ý với{' '}
-                  <a href="#" className="text-blue-600 hover:underline">
+                  <Link to="/publicpage/terms" className="text-blue-600 hover:underline">
                     Điều khoản sử dụng
-                  </a>{' '}
+                  </Link>{' '}
                   và{' '}
-                  <a href="#" className="text-blue-600 hover:underline">
+                  <Link to="/publicpage/privacy-policy" className="text-blue-600 hover:underline">
                     Chính sách bảo mật
-                  </a>{' '}
+                  </Link>{' '}
                   của hệ thống
                 </span>
               </div>

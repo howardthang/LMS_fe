@@ -14,11 +14,22 @@ import {
   PageResponse,
   PublicSearchParams,
   PublicSearchResult,
+  PublicLibraryStats,
+  PublicTestimonial,
 } from './publicationTypes';
+import type { RecommendedPublication } from './recommendationService';
 
 const publicationsService = {
   getMostBorrowedPublications: async (limit: number = 10): Promise<ApiResponse<MostBorrowedPublication[]>> => {
     return axiosInstance.get(`/publications/most-borrowed?limit=${limit}`);
+  },
+
+  getPublicStats: async (): Promise<ApiResponse<PublicLibraryStats>> => {
+    return axiosInstance.get('/publications/public-stats');
+  },
+
+  getPublicTestimonials: async (limit: number = 3): Promise<ApiResponse<PublicTestimonial[]>> => {
+    return axiosInstance.get(`/publications/testimonials?limit=${limit}`);
   },
 
   recordView: async (publicationId: string): Promise<void> => {
@@ -201,6 +212,20 @@ const publicationsService = {
     q.append('page', String(params.page ?? 0));
     q.append('size', String(params.size ?? 12));
     return axiosInstance.get(`/publications/search?${q.toString()}`);
+  },
+
+  semanticSearch: async (
+    queryText: string,
+    limit: number = 12
+  ): Promise<ApiResponse<{ publicationIds: string[] }>> => {
+    return axiosInstance.post('/ai/semantic-search', { queryText, limit });
+  },
+
+  getSimilarPublications: async (
+    id: string,
+    limit: number = 6
+  ): Promise<ApiResponse<RecommendedPublication[]>> => {
+    return axiosInstance.get(`/publications/${id}/similar?limit=${limit}`);
   },
 
   getPublicationItems: async (

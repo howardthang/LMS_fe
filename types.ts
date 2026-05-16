@@ -21,6 +21,9 @@ export interface Book {
   description?: string;
   format?: 'Print' | 'Ebook' | 'E-book';
   createdAt?: string;
+  aiProcessingStatus?: 'NOT_UPLOADED' | 'NOT_STARTED' | 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'FAILED';
+  aiProcessingError?: string | null;
+  aiProcessedAt?: string | null;
 
   // Dashboard specific
   borrowDate?: string;

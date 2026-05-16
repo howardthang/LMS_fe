@@ -20,7 +20,7 @@ const Header: React.FC = () => {
                 SmartLibrary
               </span>
               <span className="text-[10px] text-gray-500 font-medium tracking-wide uppercase">
-                AI-Powered Discovery
+                AI-POWERED DISCOVERY
               </span>
             </div>
           </Link>
@@ -51,6 +51,12 @@ const Header: React.FC = () => {
             >
               <span>Danh mục</span>
               <ChevronDown className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/publicpage/contact"
+              className="text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors"
+            >
+              Liên hệ
             </Link>
           </nav>
 
